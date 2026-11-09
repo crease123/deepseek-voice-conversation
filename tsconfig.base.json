@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "strict": true,
+    "declaration": true,
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
@@ -29,6 +30,9 @@
       ],
       "@deepseek-ai/dsh-client-ui-voice-conversation/*": [
         "packages/experimental/client-ui-voice-conversation/src/*"
+      ],
+      "@deepseek-ai/dsh-voice-speech-doubao/types": [
+        "packages/experimental/voice-speech-doubao/lib/types/types.d.ts"
       ]
     },
     "ignoreDeprecations": "6.0"

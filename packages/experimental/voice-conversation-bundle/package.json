@@ -39,5 +39,8 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
+  },
+  "scripts": {
+    "bundle": "tsdown"
   }
 }

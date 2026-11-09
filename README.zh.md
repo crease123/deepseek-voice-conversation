@@ -18,7 +18,25 @@
       name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
-如果直接从本仓库源码运行，可把 Harness checkout 的 `node_modules` 链接到本仓库根目录，并设置 `DSH_HARNESS_ROOT` 指向该 checkout；发布包安装时由包管理器解析对应的 Harness 版本。把源码入口写入 profile 自有补丁后，设置面板才能把音色、语速、音高、语气、播放音量、打断灵敏度和持续说话时长保存到该 profile。命令行 `--patch` 覆盖层只适合临时组合，不能作为可写设置归属层。
+从本仓库源码运行时，先安装本工作区依赖，并设置 `DSH_HARNESS_ROOT` 指向匹配版本的 Harness checkout；发布包安装时由包管理器解析对应的 Harness 版本。把源码入口写入 profile 自有补丁后，设置面板才能把音色、语速、音高、语气、播放音量、打断灵敏度和持续说话时长保存到该 profile。命令行 `--patch` 覆盖层只适合临时组合，不能作为可写设置归属层。
+
+### 构建本地 Client 产物
+
+先在匹配版本的 Harness 仓库构建产物：
+
+```sh
+cd /absolute/path/to/deepseek-harness
+pnpm run build:artifacts
+```
+
+然后回到本仓库构建三个插件包并生成 Host Remote 元数据：
+
+```sh
+pnpm install
+DSH_HARNESS_ROOT=/absolute/path/to/deepseek-harness pnpm run build
+```
+
+`generate:remote` 会把 Host 包暂存到 Harness workspace 的专用路径，并添加临时项目引用，让 Typert 识别 Remote 装饰器。若暂存目录已存在，脚本会拒绝使用；写入前会再次检查 Harness 配置，生成结束后会还原配置。请勿与其他会编辑 `tsconfig.host.json` 的任务并行执行；若脚本检测到后续改动，会保留当前文件并报告备份路径，供手动恢复或合并。
 
 启用后，入口位于 **设置 → 通用设置 → 语音通话**。面板支持选择音色、调节语速和播放音量、试听，以及调节打断灵敏度和触发前的最短持续说话时间。试听期间会暂停当前通话的收音和自动播报，完成后恢复。
 

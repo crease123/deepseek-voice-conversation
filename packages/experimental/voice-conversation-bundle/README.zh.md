@@ -33,20 +33,22 @@ kind: "package-bundle"
 
 <a id="source-checkout"></a>
 
-先按[开发命令](../../../README.zh.md#与-deepseek-harness-集成)构建工作区。在仓库根目录创建一个名称尚未使用的自定义 Web profile；下文以 `voice-conversation` 为例：
+先按[仓库指南](../../../README.zh.md#与-deepseek-harness-集成)构建匹配版本的 Harness 工作区。在 Harness checkout 的根目录创建一个名称尚未使用的自定义 Web profile；下文以 `voice-conversation` 为例：
 
 ```sh
 pnpm dsh voice-conversation --from-default-profile web --dump-config
 ```
 
-仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入两个插件，并将 `/absolute/path/to/deepseek-harness` 替换为当前检出目录的绝对路径：
+源码开发时，启动 profile 前先按照[仓库指南](../../../README.zh.md#构建本地-client-产物)构建本地 Client 产物。
+
+仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入两个插件，并将 `/absolute/path/to/deepseek-voice-conversation` 替换为当前检出目录的绝对路径：
 
 ```yaml
 - insert:
     - id: voice-speech-doubao
-      name: '/absolute/path/to/deepseek-harness/packages/experimental/voice-speech-doubao/src/index.ts'
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
     - id: client-ui-voice-conversation
-      name: '/absolute/path/to/deepseek-harness/packages/experimental/client-ui-voice-conversation/src/index.ts'
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
 之后启动此 profile 时省略初始化参数：
@@ -75,7 +77,7 @@ pnpm dsh voice-conversation --no-open --port 0
 
 本组合包组合[豆包 Host 服务](../voice-speech-doubao/README.zh.md)和 [Client 通话控制器](../client-ui-voice-conversation/README.zh.md)。各包管理自己的行为；组合包不包含智能体循环或对话历史。插件通过已声明的包导出、带认证的 Remote 传输和已注册的会话插槽接入。
 
-保留已声明的导出与组合补丁，可将这三个包维护为独立 npm 工作区。迁出需要单独配置构建与测试，将 `workspace:*` 和 `workspace:~` 替换为已发布的依赖版本，并针对支持的 Harness 版本验证。
+本仓库在一个工作区中维护 Host、Client 和组合包。组合包在本地使用 `workspace:*` 依赖；发布这些包时，需要将这些选择器替换为已发布的版本范围，并验证支持的 Harness 版本。
 
 </details>
 

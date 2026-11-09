@@ -33,20 +33,22 @@ Disable [Voice input](the separate Voice input bundle) before enabling this bund
 
 <a id="source-checkout"></a>
 
-Build the workspace using the [development commands](../../../README.md#deepseek-harness-integration). From the repository root, create a custom Web profile with an unused name; `voice-conversation` below is an example:
+Build the workspace using the [repository guide](../../../README.md#build-the-local-client-bundle). From the matching Harness checkout’s root, create a custom Web profile with an unused name; `voice-conversation` below is an example:
 
 ```sh
 pnpm dsh voice-conversation --from-default-profile web --dump-config
 ```
 
-Run this initialization only once: `--from-default-profile` replaces the named profile directory, including its existing patch and dependencies. Edit `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml` (`~/.dsh/profiles/voice-conversation/cordis.patch.yml` by default) and insert both plugins there, replacing `/absolute/path/to/deepseek-harness` with this checkout’s absolute path:
+For source development, build the local Client bundle using the [repository guide](../../../README.md#build-the-local-client-bundle) before starting the profile.
+
+Run this initialization only once: `--from-default-profile` replaces the named profile directory, including its existing patch and dependencies. Edit `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml` (`~/.dsh/profiles/voice-conversation/cordis.patch.yml` by default) and insert both plugins there, replacing `/absolute/path/to/deepseek-voice-conversation` with this checkout’s absolute path:
 
 ```yaml
 - insert:
     - id: voice-speech-doubao
-      name: '/absolute/path/to/deepseek-harness/packages/experimental/voice-speech-doubao/src/index.ts'
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
     - id: client-ui-voice-conversation
-      name: '/absolute/path/to/deepseek-harness/packages/experimental/client-ui-voice-conversation/src/index.ts'
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
 Start this profile without the initialization flag:
@@ -75,7 +77,7 @@ Hang up to release the microphone and voice requests. Switching Sessions, hiding
 
 The bundle composes a [Doubao Host service](../voice-speech-doubao/README.md) and a [Client call controller](../client-ui-voice-conversation/README.md). Each package owns its behavior; the bundle carries no Agent loop or conversation history. The plugins integrate through declared package exports, the authenticated Remote transport, and registered conversation slots.
 
-The three packages can be maintained in a separate npm workspace by retaining their declared exports and bundle patch. Such a move requires independent build and test configuration, published dependency versions in place of `workspace:*` and `workspace:~`, and verification against the supported Harness version.
+This repository keeps the Host, Client, and bundle packages in one workspace. The bundle uses `workspace:*` dependencies locally; publishing the packages requires replacing those selectors with published version ranges and verifying the supported Harness version.
 
 </details>
 

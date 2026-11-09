@@ -63,5 +63,8 @@
     "@deepseek-ai/dsh-typert-registry": "^0.2.2-rc.1",
     "@deepseek-ai/cordis-plugin-loader": "^1.1.0",
     "@types/ws": "^8.18.1"
+  },
+  "scripts": {
+    "bundle": "tsdown"
   }
 }

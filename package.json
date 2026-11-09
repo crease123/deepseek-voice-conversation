@@ -5,9 +5,23 @@
   "description": "Standalone DeepSeek Harness voice conversation plugins",
   "type": "module",
   "packageManager": "pnpm@11.28.5",
-  "workspaces": ["packages/experimental/*"],
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "workspaces": [
+    "packages/experimental/*"
+  ],
   "scripts": {
     "format-check": "git diff --check",
-    "list": "pnpm -r list --depth -1"
+    "generate:remote": "node scripts/generate-remote.mjs",
+    "list": "pnpm -r list --depth -1",
+    "build": "pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-speech-doubao/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-speech-doubao bundle && pnpm run generate:remote && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/client-ui-voice-conversation/tsconfig.json && pnpm --filter @deepseek-ai/dsh-client-ui-voice-conversation bundle && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-conversation-bundle/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-conversation-bundle bundle"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3"
   }
 }
