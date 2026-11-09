@@ -1,0 +1,43 @@
+{
+  "name": "@deepseek-ai/dsh-voice-conversation-bundle",
+  "description": "Optional continuous voice conversations with Doubao speech and the current Session agent",
+  "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "cordis.patch.yml",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/dsh-voice-speech-doubao": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-voice-conversation": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.1.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.1.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

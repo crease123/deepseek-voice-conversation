@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "lib": [
+      "ES2024",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@deepseek-ai/dsh-voice-speech-doubao": [
+        "packages/experimental/voice-speech-doubao/src/index.ts"
+      ],
+      "@deepseek-ai/dsh-voice-speech-doubao/*": [
+        "packages/experimental/voice-speech-doubao/src/*"
+      ],
+      "@deepseek-ai/dsh-client-ui-voice-conversation": [
+        "packages/experimental/client-ui-voice-conversation/src/index.ts"
+      ],
+      "@deepseek-ai/dsh-client-ui-voice-conversation/*": [
+        "packages/experimental/client-ui-voice-conversation/src/*"
+      ]
+    },
+    "ignoreDeprecations": "6.0"
+  }
+}

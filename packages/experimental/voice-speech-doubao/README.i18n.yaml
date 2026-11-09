@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/experimental/voice-speech-doubao/README.md
+/:
+  en: 138a623969fdb1aa
+  zh: 71f6fde23db57f95
+/deepseek-ai-dsh-voice-speech-doubao:
+  en: 6c1eb5748fb43963
+  zh: cf9a2f008c5802cc
+/deepseek-ai-dsh-voice-speech-doubao/summary:
+  en: 6b6734f356a500a1
+  zh: 01d6bec05b200a8f
+/deepseek-ai-dsh-voice-speech-doubao/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: c3eda0928b5a4ec9
+/deepseek-ai-dsh-voice-speech-doubao/use-this-package:
+  en: 2f97ab2adb3a195e
+  zh: 3e27556cb19e956a
+/deepseek-ai-dsh-voice-speech-doubao/understand-the-implementation:
+  en: 328030332884f85b
+  zh: f1532f1353c2da01
+/deepseek-ai-dsh-voice-speech-doubao/further-exploration:
+  en: 9c7e83f131a87055
+  zh: 417deba7528cd140
+/deepseek-ai-dsh-voice-speech-doubao/model-experience:
+  en: 87bef1e4ce9af175
+  zh: ffae1afd9d39ed9a
+/deepseek-ai-dsh-voice-speech-doubao/model-experience/kv-cache-effect:
+  en: e5cbf12aee8427ec
+  zh: 04b8f2ebfc2cf33a
+/deepseek-ai-dsh-voice-speech-doubao/known-limitations-and-deferred-work:
+  en: 2da18657eb95c490
+  zh: d9fab6273f8a909c
+/deepseek-ai-dsh-voice-speech-doubao/known-limitations-and-deferred-work/dev-note:
+  en: a091d6551fe4f44a
+  zh: d793b43ac711ad63

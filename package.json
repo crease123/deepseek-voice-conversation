@@ -1,0 +1,13 @@
+{
+  "name": "deepseek-voice-conversation",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone DeepSeek Harness voice conversation plugins",
+  "type": "module",
+  "packageManager": "pnpm@11.28.5",
+  "workspaces": ["packages/experimental/*"],
+  "scripts": {
+    "format-check": "git diff --check",
+    "list": "pnpm -r list --depth -1"
+  }
+}
