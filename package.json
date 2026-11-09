@@ -15,7 +15,8 @@
     "format-check": "git diff --check",
     "generate:remote": "node scripts/generate-remote.mjs",
     "list": "pnpm -r list --depth -1",
-    "build": "pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-speech-doubao/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-speech-doubao bundle && pnpm run generate:remote && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/client-ui-voice-conversation/tsconfig.json && pnpm --filter @deepseek-ai/dsh-client-ui-voice-conversation bundle && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-conversation-bundle/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-conversation-bundle bundle"
+    "build": "pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-speech-doubao/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-speech-doubao bundle && pnpm run generate:remote && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/client-ui-voice-conversation/tsconfig.json && pnpm --filter @deepseek-ai/dsh-client-ui-voice-conversation bundle && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-conversation-bundle/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-conversation-bundle bundle",
+    "dev:watch": "node scripts/dev-watch.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

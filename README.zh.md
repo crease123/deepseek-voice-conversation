@@ -38,6 +38,12 @@ DSH_HARNESS_ROOT=/absolute/path/to/deepseek-harness pnpm run build
 
 `generate:remote` 会把 Host 包暂存到 Harness workspace 的专用路径，并添加临时项目引用，让 Typert 识别 Remote 装饰器。若暂存目录已存在，脚本会拒绝使用；写入前会再次检查 Harness 配置，生成结束后会还原配置。请勿与其他会编辑 `tsconfig.host.json` 的任务并行执行；若脚本检测到后续改动，会保留当前文件并报告备份路径，供手动恢复或合并。
 
+### 修改本地源码
+
+当前 Mac 已配置登录后台任务，登录后自动运行 `pnpm run dev:watch`。Host 与 Client 的 `src/` 改动会先经过 TypeScript 检查，再重建本地链接包；Client 改动会热更新到打开的应用，Host 改动会重载运行中的插件。类型检查失败时会保留上一次成功构建。Profile 清单、包元数据和生成的 Remote 定义仍需按各自说明重新安装或重启。
+
+修改监听配置后，可运行 `launchctl kickstart -k gui/$(id -u)/local.deepseek.voice-conversation.watch` 重启后台监听。若改为手动运行，先用 `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/local.deepseek.voice-conversation.watch.plist` 停止后台任务，再在本仓库运行 `DSH_HARNESS_ROOT=/absolute/path/to/deepseek-harness pnpm run dev:watch`。
+
 启用后，入口位于 **设置 → 通用设置 → 语音通话**。面板支持选择音色、调节语速和播放音量、试听，以及调节打断灵敏度和触发前的最短持续说话时间。试听期间会暂停当前通话的收音和自动播报，完成后恢复。
 
 ## 目录
