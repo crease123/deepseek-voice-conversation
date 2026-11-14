@@ -52,7 +52,7 @@ Replace `<your-profile>` with your actual profile name. Desktop users should ins
 
 </details>
 
-> This guide describes v0.3.3 and later, where voice calls work within your existing conversation without a separate Agent preset. Upgrade older installations to use the behavior shown here.
+> This guide describes v0.3.4 and later, where voice calls work within your existing conversation without a separate Agent preset. Upgrade older installations to use the behavior shown here.
 
 ### 2. Configure your speech services
 
@@ -139,3 +139,5 @@ For local watching, use `pnpm run dev:watch` with the same `DSH_HARNESS_ROOT`. C
 Read more: [Speech subsystem](docs/voice-conversation.md) · [Call context](packages/experimental/personal-agent/README.md) · [Bundle](packages/experimental/voice-conversation-bundle/README.md).
 
 MIT License. Never commit API keys or tokens, or include them in issues or screenshots.
+
+Version 0.3.4 preserves speech playback ownership when runtime context is injected, fixing silent first replies after starting a call.

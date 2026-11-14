@@ -52,7 +52,7 @@ dsh plugin --profile <你的-profile> add voice-call
 
 </details>
 
-> 本指南对应 v0.3.3 及更新版本：语音通话直接在现有会话中使用，不再提供独立 Agent 预设。旧版用户请先更新插件。
+> 本指南对应 v0.3.4 及更新版本：语音通话直接在现有会话中使用，不再提供独立 Agent 预设。旧版用户请先更新插件。
 
 ### 2. 配置自己的语音服务
 
@@ -139,3 +139,5 @@ DSH_HARNESS_ROOT=/absolute/path/to/deepseek-harness pnpm run build
 更多说明：[语音子系统](docs/voice-conversation.zh.md) · [通话上下文](packages/experimental/personal-agent/README.zh.md) · [组合包](packages/experimental/voice-conversation-bundle/README.zh.md)。
 
 MIT License。请勿向仓库、Issue 或截图提交 API Key、Token 等凭据。
+
+0.3.4 修复开始通话后首个回复可能无声的问题：运行时提示词更新不再清除当前回复的朗读标记。

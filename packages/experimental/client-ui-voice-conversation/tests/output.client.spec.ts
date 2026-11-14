@@ -88,3 +88,24 @@ it('does not synthesize symbol-only fragments from streamed Markdown and repeate
     ]
   `)
 })
+
+it.each([false, true])('preserves first reply ownership across runtime context (streamed=%s)', (streamed) => {
+  const speak = vi.fn(), output = new VoiceOutput(100, speak, vi.fn())
+  start(output)
+  output.accept([row('user/message', { source: { kind: 'runtime-context' },
+    content: [{ type: 'text', text: '当前交流方式：实时语音通话。' }] })])
+  if (streamed) output.accept([delta('第一句。')])
+  output.accept([settlement('第一句。')])
+  expect(speak.mock.calls).toEqual([['第一句。']])
+  output.accept([row('user/message', { source: { kind: 'runtime-context' }, content: [] }),
+    delta('第二步。', 'text-delta', 1, 2), settlement('第二步。', 2)])
+  expect(speak.mock.calls).toEqual([['第一句。'], ['第二步。']])
+})
+
+it('does not acquire response ownership from runtime context alone', () => {
+  const speak = vi.fn(), output = new VoiceOutput(100, speak, vi.fn())
+  output.accept([row('turn/start', { turn: 1 }),
+    row('user/message', { source: { kind: 'runtime-context' }, content: [] }),
+    delta('不应朗读。'), settlement('不应朗读。')])
+  expect(speak).not.toHaveBeenCalled()
+})
