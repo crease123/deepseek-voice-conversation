@@ -1,5 +1,5 @@
 {
-  "name": "dsh-voice-call",
+  "name": "voice-call",
   "version": "0.3.0",
   "description": "Voice call for DeepSeek Harness with DeepSeek or Doubao speech, microphone response, and configurable credentials",
   "type": "module",
@@ -55,5 +55,9 @@
     "voice",
     "asr",
     "tts"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

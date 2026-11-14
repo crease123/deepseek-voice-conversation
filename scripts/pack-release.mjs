@@ -52,4 +52,4 @@ for (const name of names) {
 }
 const bundle = join(root, 'packages/experimental/voice-conversation-bundle')
 const data = { ...manifest, main: 'lib/index.js', types: 'lib/types/index.d.ts', exports: { '.': { types: './lib/types/index.d.ts', default: './lib/index.js' }, './package.json': './package.json', './cordis.patch.yml': './cordis.patch.yml', './locale/*.json': './locale/*.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } } }
-await pack('dsh-voice-call', bundle, data, [['lib', 'lib'], ['locale', 'locale'], ['cordis.patch.yml', 'cordis.patch.yml']])
+await pack(manifest.name, bundle, data, [['lib', 'lib'], ['locale', 'locale'], ['cordis.patch.yml', 'cordis.patch.yml']])
