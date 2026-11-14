@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-voice-conversation",
   "description": "Optional continuous voice conversations using the current Session and its tools",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "publishConfig": {
     "access": "public"
   },

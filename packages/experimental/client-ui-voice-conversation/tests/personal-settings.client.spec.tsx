@@ -18,11 +18,10 @@ function fixture() {
   return { state, props }
 }
 
-it('opens the editor, labels both prompts and joins its page lifecycle', () => {
+it('opens the editor, labels call guidance and joins its page lifecycle', () => {
   const b = fixture(), view = render(createElement(PersonalAgentSettings, b.props))
   expect(b.props.open).toHaveBeenCalledOnce()
-  fireEvent.change(screen.getByRole('textbox', { name: 'Base instructions' }), { target: { value: 'Draft base.' } })
-  expect(b.props.edit).toHaveBeenCalledWith('basePrompt', 'Draft base.')
+  expect(screen.queryByRole('textbox', { name: 'Base instructions' })).toBeNull()
   fireEvent.change(screen.getByRole('textbox', { name: 'Call instructions' }), { target: { value: 'Draft call.' } })
   expect(b.props.edit).toHaveBeenCalledWith('callPrompt', 'Draft call.')
   expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true)
@@ -37,18 +36,16 @@ it('previews saved instructions for text and voice without including unsaved edi
   b.state.update((state) => { state.draft = { basePrompt: 'Unsaved base.', callPrompt: 'Unsaved call.' }; state.dirty = true })
   render(createElement(PersonalAgentSettings, b.props))
   fireEvent.click(screen.getByText('View active rules'))
-  expect(screen.getByLabelText('Saved rules').textContent).toBe('Saved base instructions.')
-  fireEvent.change(screen.getByRole('combobox', { name: 'Conversation type' }), { target: { value: 'call' } })
-  expect(screen.getByLabelText('Saved rules').textContent).toBe('Saved base instructions.\n\nSaved call instructions.')
+  expect(screen.getByLabelText('Saved rules').textContent).toBe('Saved call instructions.')
   expect(screen.getByLabelText('Saved rules').textContent).not.toContain('Unsaved')
 })
 
-it('keeps both prompts visible during save conflicts and read-only profiles', () => {
+it('keeps call guidance visible during save conflicts and read-only profiles', () => {
   const b = fixture()
   b.state.update((state) => { state.failure = 'conflict'; state.dirty = true })
   const view = render(createElement(PersonalAgentSettings, b.props))
   expect(screen.getByRole('alert').textContent).toContain('Saved instructions changed elsewhere')
-  expect(screen.getByRole('textbox', { name: 'Base instructions' })).toHaveProperty('value', 'Saved base instructions.')
+  expect(screen.getByRole('textbox', { name: 'Call instructions' })).toHaveProperty('value', 'Saved call instructions.')
   act(() => { b.state.update((state) => { state.writable = false }) })
   expect(screen.getByRole('textbox', { name: 'Call instructions' }).hasAttribute('disabled')).toBe(true)
   expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true)

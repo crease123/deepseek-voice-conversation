@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-voice-speech-doubao",
   "description": "Doubao transcription and streaming synthesis for optional voice conversations",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "publishConfig": {
     "access": "public"
   },

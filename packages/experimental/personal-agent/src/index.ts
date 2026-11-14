@@ -1,7 +1,6 @@
-/** Personal Agent preset, editable guidance, and connection-owned conversation channel. */
-import { Context, Service, type Volatile } from '@deepseek-ai/cordis'
-import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
-import { entryListProblem, type PresetDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
+/** Session-bound call guidance; legacy service identity is retained for installed clients. */
+import { Context, type Volatile } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/cordis-plugin-include'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -9,7 +8,6 @@ import type { SettingsNamespace } from '@deepseek-ai/dsh-settings/types'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { Remote, RemoteError, TypertRemoteService, type RemoteStream } from '@deepseek-ai/dsh-typert-protocol'
 import z from '@deepseek-ai/schemastery'
-import { load } from 'js-yaml'
 import type { PersonalAgentCallState, PersonalAgentCatalog } from './types.ts'
 
 export type * from './types.ts'
@@ -23,11 +21,11 @@ declare module '@deepseek-ai/cordis' {
 
 /** Deployment defaults and live-editable personal guidance. */
 export interface Config {
-  /** Source preset whose tools and operating policies are reused. */
+  /** Legacy compatibility field; no preset is registered or mounted. */
   basePreset: string
-  /** User-editable personal persona, read at every model request. */
+  /** Legacy compatibility field; never injected into model requests. */
   basePrompt: Volatile<string>
-  /** User-editable speech guidance, applied only to personal Sessions in a call. */
+  /** User-editable speech guidance, applied to every Session in a call. */
   callPrompt: Volatile<string>
 }
 
@@ -38,7 +36,7 @@ type Lease = { release(): void }
 
 /** No state transition starts a model turn; the next ordinary request records the current channel. */
 export default class PersonalAgent extends TypertRemoteService {
-  static inject = ['agentPresets', 'sessions', 'systemPrompt', 'typert']
+  static inject = ['sessions', 'systemPrompt', 'typert']
   static Config: z<Options, Config> = z.object({
     basePreset: z.string().min(1).default('standard'),
     basePrompt: z.string().min(1).default('你是用户的语音通话助手，协助处理日常事务、学习讨论、资料整理和具体任务。先理解用户的目标，直接回答核心问题，使用自然、清晰的中文。简单问题简短回答；复杂问题先给结论，再按需要展开。执行任务时沿用当前会话的工具和权限，简短说明必要进展，并在完成后报告实际结果；未完成或不确定的事情如实说明。尊重用户明确表达的偏好，不反复确认已经授权的常规步骤。').volatile(),
@@ -53,17 +51,13 @@ export default class PersonalAgent extends TypertRemoteService {
     super(ctx, 'personalAgent')
     this.settingsNamespace = ctx.fiber.entry?.options.id as SettingsNamespace | undefined
     ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
-    ctx.effect(() => ctx.systemPrompt.variable('personal_agent_prompt', () => config.basePrompt.get()))
     ctx.effect(() => ctx.systemPrompt.context({
       name: 'personal-agent:channel', order: 1000, required: true, interpolate: false,
       text: ({ agent }) => {
         if (agent === undefined) return ''
         const session = agent.session
-        const personal = ctx.agentPresets.presetForSession(session) === 'personal'
         if (!this.calls.has(session.id)) return '当前交流方式：文字。之前的语音通话状态和仅限通话的表达要求已结束；按当前用户请求决定回答长度。'
-        return personal
-          ? `当前交流方式：实时语音通话。以下表达要求仅在当前通话期间生效。\n\n${config.callPrompt.get()}`
-          : '当前交流方式：实时语音通话。用户正在通过麦克风与你交谈，回复将被语音播报。'
+        return `当前交流方式：实时语音通话。以下表达要求仅在当前通话期间生效。\n\n${config.callPrompt.get()}`
       },
     }))
     ctx.on('session/disposed', (session) => {
@@ -72,20 +66,6 @@ export default class PersonalAgent extends TypertRemoteService {
     ctx.effect(() => () => { this.lifetime.abort() })
   }
 
-  protected async *[Service.init]() {
-    const document = await this.ctx.agentPresets.readDocument(this.config.basePreset)
-    const parsed: unknown = load(document.content, { schema: entryListSchema })
-    const problem = entryListProblem(parsed)
-    if (problem !== undefined) throw new Error(`Cannot compose personal Agent: ${problem}`)
-    // The Loader dialect has been validated with the registry's own entry-list validator.
-    const plugins = parsed as PresetDefinition['plugins']
-    const persona = { id: 'personal-persona', name: '@deepseek-ai/dsh-persona',
-      config: { prefix: '{{personal_agent_prompt}}' } }
-    yield await this.ctx.agentPresets.register({
-      id: 'personal', name: 'Voice call', description: '面向日常事务、学习讨论和任务执行，通话时使用简短口语', order: 2,
-      plugins: [persona, ...plugins.filter(row => row.name !== '@deepseek-ai/dsh-persona')],
-    })
-  }
 
   /**
    * Read saved guidance and its configuration namespace without starting a conversation.

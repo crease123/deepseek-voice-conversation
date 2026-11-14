@@ -5,8 +5,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 export const PERSONAL_NS = 'voice-conversation.personal-agent'
 /** English personal Agent page copy and key source. */
 export const personalEn = {
-  title: 'Voice call instructions', description: 'Set how your voice call assistant works and how it speaks during calls.',
-  usage: 'Choose Voice call when starting a new conversation. These rules apply to that mode only.',
+  title: 'Voice call instructions', description: 'Set how the model speaks during voice calls.',
+  usage: 'Start a voice call in any conversation. These rules apply only while the call is connected.',
   basePrompt: 'Base instructions', baseHint: 'Identity, communication style, and task handling. Active in both text and voice conversations.',
   callPrompt: 'Call instructions', callHint: 'Added during a voice call and removed after hanging up. Keep spoken answers brief and natural.',
   cancel: 'Cancel', save: 'Save', saving: 'Saving…',
@@ -20,8 +20,8 @@ export const personalEn = {
 } as const
 /** Chinese personal Agent page copy. */
 export const personalZh = {
-  title: '通话提示词', description: '设置语音通话的工作方式，以及通话时的表达规则',
-  usage: '新建会话时选择「语音通话」；这些规则仅作用于该模式',
+  title: '通话提示词', description: '设置模型在语音通话期间的表达规则',
+  usage: '在任意会话中开启语音通话；这些规则仅在通话期间生效',
   basePrompt: '基础提示词', baseHint: '定义身份、沟通习惯和任务处理方式，文字交流和语音通话时均生效',
   callPrompt: '通话补充规则', callHint: '通话时叠加，挂断后移除；可要求回答简短、自然口语表达',
   cancel: '取消', save: '保存', saving: '正在保存…',
@@ -35,7 +35,7 @@ export const personalZh = {
 /** Japanese personal Agent page copy. */
 export const personalJa = {
   title: 'パーソナルエージェント', description: 'エージェントの作業方針と通話中の話し方を設定します。',
-  usage: '新しい会話で「Voice call」を選んでください。このルールはそのモードだけに適用されます。',
+  usage: 'どの会話でも音声通話を開始できます。このルールは通話中だけ適用されます。',
   basePrompt: '基本指示', baseHint: '役割、話し方、作業方針。テキストと音声の両方で有効です。',
   callPrompt: '通話中の追加指示', callHint: '通話中に追加され、切断後に解除されます。短く自然な応答を指定できます。',
   cancel: 'キャンセル', save: '保存', saving: '保存中…',
@@ -49,7 +49,7 @@ export const personalJa = {
 /** Spanish personal Agent page copy. */
 export const personalEs = {
   title: 'Agente personal', description: 'Define cómo trabaja tu agente y cómo habla durante las llamadas.',
-  usage: 'Elige Voice call al iniciar una conversación. Estas reglas solo se aplican a ese modo.',
+  usage: 'Inicia una llamada en cualquier conversación. Estas reglas solo se aplican durante la llamada.',
   basePrompt: 'Instrucciones base', baseHint: 'Identidad, comunicación y gestión de tareas. Se aplican tanto al texto como a la voz.',
   callPrompt: 'Instrucciones de llamada', callHint: 'Se añaden durante la llamada y se retiran al colgar. Pide respuestas breves y naturales.',
   cancel: 'Cancelar', save: 'Guardar', saving: 'Guardando…',
@@ -63,7 +63,7 @@ export const personalEs = {
 /** French personal Agent page copy. */
 export const personalFr = {
   title: 'Agent personnel', description: 'Définissez le travail de votre agent et sa façon de parler pendant les appels.',
-  usage: 'Choisissez Voice call pour une nouvelle conversation. Ces règles s’appliquent uniquement à ce mode.',
+  usage: 'Démarrez un appel dans toute conversation. Ces règles s’appliquent uniquement pendant l’appel.',
   basePrompt: 'Instructions de base', baseHint: 'Identité, communication et gestion des tâches. Actives à l’écrit et à l’oral.',
   callPrompt: 'Instructions d’appel', callHint: 'Ajoutées pendant l’appel et retirées ensuite. Demandez des réponses brèves et naturelles.',
   cancel: 'Annuler', save: 'Enregistrer', saving: 'Enregistrement…',
@@ -77,7 +77,7 @@ export const personalFr = {
 /** German personal Agent page copy. */
 export const personalDe = {
   title: 'Persönlicher Agent', description: 'Legen Sie Arbeitsweise und Sprechstil Ihres persönlichen Agenten fest.',
-  usage: 'Wählen Sie Voice call für ein neues Gespräch. Diese Regeln gelten nur für diesen Modus.',
+  usage: 'Starten Sie einen Sprachanruf in einem beliebigen Gespräch. Diese Regeln gelten nur während des Anrufs.',
   basePrompt: 'Grundlegende Anweisungen', baseHint: 'Identität, Kommunikation und Aufgabenbearbeitung. Für Text und Sprache aktiv.',
   callPrompt: 'Anweisungen für Anrufe', callHint: 'Während des Anrufs hinzugefügt und danach entfernt. Für kurze, natürliche Antworten.',
   cancel: 'Abbrechen', save: 'Speichern', saving: 'Wird gespeichert…',

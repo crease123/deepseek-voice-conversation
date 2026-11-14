@@ -66,7 +66,7 @@ async function fixture() {
   const adapter = new Adapter()
   ctx.effect(() => ctx.llm.registerAdapter(['personal-test'], adapter))
   const handles = new Map<SessionId, AgentHandle>()
-  const create = async (id: string, preset = 'personal') => {
+  const create = async (id: string, preset = 'standard') => {
     const handle = await ctx.agents.create({ sessionId: SessionId(id), meta: { agentPreset: preset },
       agentOptions: { provider: 'personal-test', model: 'personal-test' },
       setup: agentCtx => ctx.agentPresets.mount(agentCtx, preset).then(() => undefined) })
@@ -88,39 +88,14 @@ async function fixture() {
   return { ctx, api, entry, create, close, prompt, update, adapter }
 }
 
-it('adds a personal preset while preserving Standard and updates guidance for an existing Agent', async () => {
-  const b = await fixture(), personal = await b.create('personal'), standard = await b.create('standard', 'standard')
-  expect(await b.ctx.agentPresets.list()).toMatchObject([{ id: 'personal' }, { id: 'standard' }])
-  expect(b.ctx.tools.schemas(personal).map(tool => tool.name)).toEqual(['sample_tool'])
-  expect(b.ctx.tools.schemas(standard).map(tool => tool.name)).toEqual(['sample_tool'])
-  const before = await b.prompt(personal)
-  const control = await b.prompt(standard)
-  await b.update('新个人提示：保留 {{literal}} 原文。', '新通话提示：简短回答。')
-  const after = await b.prompt(personal)
-  expect({ before, control, after }).toMatchInlineSnapshot(`
-    {
-      "after": {
-        "context": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.
-
-    当前交流方式：文字。之前的语音通话状态和仅限通话的表达要求已结束；按当前用户请求决定回答长度。",
-        "system": "新个人提示：保留 {{literal}} 原文。",
-      },
-      "before": {
-        "context": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.
-
-    当前交流方式：文字。之前的语音通话状态和仅限通话的表达要求已结束；按当前用户请求决定回答长度。",
-        "system": "个人助理：直接回答。",
-      },
-      "control": {
-        "context": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.
-
-    当前交流方式：文字。之前的语音通话状态和仅限通话的表达要求已结束；按当前用户请求决定回答长度。",
-        "system": "Standard coding Agent.",
-      },
-    }
-  `)
-  expect(await b.prompt(standard)).toEqual(control)
-  expect(b.api.catalog(new AbortController().signal)).toEqual({ basePrompt: '新个人提示：保留 {{literal}} 原文。', callPrompt: '新通话提示：简短回答。', settingsNamespace: 'personal-agent' })
+it('does not register a preset or override the existing persona', async () => {
+  const b = await fixture(), agent = await b.create('ordinary')
+  expect(await b.ctx.agentPresets.list()).toMatchObject([{ id: 'standard' }])
+  expect(b.ctx.tools.schemas(agent).map(tool => tool.name)).toEqual(['sample_tool'])
+  expect((await b.prompt(agent)).system).toBe('Standard coding Agent.')
+  await b.update('This legacy persona must not be injected.', 'Updated call instructions.')
+  expect((await b.prompt(agent)).system).toBe('Standard coding Agent.')
+  expect((await b.prompt(agent)).context).not.toContain('Updated call instructions.')
 })
 
 it('acknowledges voice context before input, retains other clients, and restores explicit text context', async () => {
@@ -140,7 +115,7 @@ it('acknowledges voice context before input, retains other clients, and restores
         "context": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.
 
     当前交流方式：文字。之前的语音通话状态和仅限通话的表达要求已结束；按当前用户请求决定回答长度。",
-        "system": "个人助理：直接回答。",
+        "system": "Standard coding Agent.",
       },
       "inCall": {
         "context": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.
@@ -148,7 +123,7 @@ it('acknowledges voice context before input, retains other clients, and restores
     当前交流方式：实时语音通话。以下表达要求仅在当前通话期间生效。
 
     语音中：每次先说两句。",
-        "system": "个人助理：直接回答。",
+        "system": "Standard coding Agent.",
       },
     }
   `)
@@ -168,7 +143,7 @@ it('applies edited call guidance to the next assembly of an active call', async 
     当前交流方式：实时语音通话。以下表达要求仅在当前通话期间生效。
 
     更新的通话提示 {{literal}}。",
-      "system": "更新的个人提示。",
+      "system": "Standard coding Agent.",
     }
   `)
   lifetime.abort(); await stream.return()
@@ -225,14 +200,14 @@ it('rejects missing Sessions and aborted callers without leaving voice context',
   expect((await b.prompt(agent)).context).toContain('当前交流方式：文字')
 })
 
-it('annotates Standard calls without applying personal-only speech guidance', async () => {
+it('applies call guidance to Standard without overriding its persona', async () => {
   const b = await fixture(), agent = await b.create('standard-call', 'standard')
   const lifetime = new AbortController(), stream = b.api.call(agent.id, lifetime.signal)
   await stream.next()
   const inCall = await b.prompt(agent)
   expect(inCall.system).toBe('Standard coding Agent.')
-  expect(inCall.context).toContain('用户正在通过麦克风与你交谈')
-  expect(inCall.context).not.toContain('每次先说两句')
+  expect(inCall.context).toContain('当前交流方式：实时语音通话')
+  expect(inCall.context).toContain('每次先说两句')
   lifetime.abort(); await stream.return()
   expect((await b.prompt(agent)).context).toContain('当前交流方式：文字')
 })

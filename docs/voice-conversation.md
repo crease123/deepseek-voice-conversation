@@ -16,9 +16,9 @@ Settings edits remain drafts until Apply saves the voice and detection fields to
 
 ## Personal Agent and communication state
 
-The bundle adds a `personal` preset by reusing the installed Standard composition and replacing its persona. The Host owns editable `basePrompt` and `callPrompt` settings; the personal persona resolves the current base prompt for each request. The Client settings editor keeps drafts separate from accepted preferences and saves both fields against their original revision.
+The bundle provides editable call guidance without registering a preset or replacing the current persona. The settings editor saves call rules while keeping unsaved drafts separate.
 
-Before capture starts, the Client holds the authenticated `personalAgent/call` stream for its exact Session and waits for acknowledgement. Host context reports the current voice/text state for each model request and adds call instructions only for the personal preset. The normal runtime-context snapshot records this model-visible input. Multiple clients hold independent registrations; the final cancellation, disconnect, Session disposal, or Host disposal clears voice state. Restarted Hosts begin in text state. Channel changes neither submit user messages nor start or cancel Agent work; already dispatched model requests retain their input.
+Before capture starts, the Client holds the authenticated `personalAgent/call` stream for its exact Session and waits for acknowledgement. Host context reports the current voice/text state for each model request and adds saved call instructions for every connected call. The normal runtime-context snapshot records this model-visible input. Multiple clients hold independent registrations; the final cancellation, disconnect, Session disposal, or Host disposal clears voice state. Restarted Hosts begin in text state. Channel changes neither submit user messages nor start or cancel Agent work; already dispatched model requests retain their input.
 
 ## Session and playback ownership
 
@@ -81,3 +81,8 @@ Types: [RemoteStream](typert.md)
 
 Source: [`packages/experimental/voice-speech-doubao/src/index.ts`](../../packages/experimental/voice-speech-doubao/src/index.ts)
 <!-- END GENERATED cordis-surface -->
+
+
+## Call context and presets
+
+The plugin no longer registers the `personal` preset or injects a base persona. Calls in any preset register their Session and inject saved `callPrompt` guidance into subsequent model requests. Hangup, disconnect, or unload withdraws the registration. The internal `personalAgent` API name is retained for client compatibility; legacy `basePreset` and `basePrompt` are ignored.

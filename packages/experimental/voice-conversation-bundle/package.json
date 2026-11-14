@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-voice-conversation-bundle",
   "description": "Optional continuous voice conversations with Doubao speech and the current Session agent",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "publishConfig": {
     "access": "public"
   },

@@ -16,9 +16,9 @@
 
 ## 个人 Agent 与交流状态
 
-组合包复用已安装的标准模式组合并替换其身份，新增 `personal` 预设。Host 管理可编辑的 `basePrompt` 与 `callPrompt` 设置，个人身份在每次请求时读取当前基础提示词。Client 设置编辑器将草稿与已接纳偏好分开，保存两字段时检查原始 revision。
+组合包提供可编辑的通话规则，不再注册预设或替换当前会话人设。Client 编辑器将草稿与已保存的通话规则分开。
 
-采集开始前，Client 为确切的 Session 保持带认证的 `personalAgent/call` 流，并等待确认。Host 上下文在每次模型请求中报告当前语音或文字状态，只为个人预设追加通话要求。普通运行时上下文快照会记录这份模型可见输入。多客户端各自持有独立登记，最后一条登记取消、断线、Session 释放或 Host 释放后撤销语音状态；Host 重启以文字状态开始。状态变化不提交用户消息，不启动或取消 Agent 工作；已经分派的模型请求保留原输入。
+采集开始前，Client 为确切的 Session 保持带认证的 `personalAgent/call` 流，并等待确认。Host 上下文在每次模型请求中报告当前语音或文字状态，为所有已连接的通话追加已保存的通话要求。普通运行时上下文快照会记录这份模型可见输入。多客户端各自持有独立登记，最后一条登记取消、断线、Session 释放或 Host 释放后撤销语音状态；Host 重启以文字状态开始。状态变化不提交用户消息，不启动或取消 Agent 工作；已经分派的模型请求保留原输入。
 
 ## Session 与播放归属
 
@@ -81,3 +81,8 @@ Types: [RemoteStream](typert.zh.md)
 
 Source: [`packages/experimental/voice-speech-doubao/src/index.ts`](../../packages/experimental/voice-speech-doubao/src/index.ts)
 <!-- END GENERATED cordis-surface -->
+
+
+## 通话上下文与预设
+
+语音插件不再注册 `personal` 预设或注入基础人设。在任何预设的会话中，开启通话会登记当前 Session，后续模型请求注入已保存的 `callPrompt`；挂断、断连或卸载时撤回。内部 `personalAgent` 接口名称为兼容现有客户端保留，旧 `basePreset`、`basePrompt` 不再生效。

@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-personal-agent",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "description": "Personal Agent preset, editable guidance, and Session-bound voice context",
   "type": "module",
   "main": "lib/index.js",

@@ -30,6 +30,7 @@ async function pack(name, source, raw, files, embedded = []) {
       if (unpack.status !== 0) throw new Error(`Could not embed ${packageName}`)
     }
     for (const doc of ['README.md', 'README.zh.md', 'LICENSE']) await cp(join(root, doc), join(directory, doc))
+    if (name === manifest.name) await cp(join(root, 'docs/images'), join(directory, 'docs/images'), { recursive: true })
     async function cleanBuiltPaths(folder) {
       for (const entry of await readdir(folder, { withFileTypes: true })) {
         const file = join(folder, entry.name)
