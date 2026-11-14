@@ -10,6 +10,10 @@ Start the microphone, speak, and pause: the plugin transcribes and sends your me
 
 *Actual usage screenshot, with the entire sidebar removed to exclude workspace names, conversation lists, and account details. The model shown is an example, not a requirement. Screenshots use the Chinese interface.*
 
+![Connected voice call with five voice bars, listening status, and a hangup control](docs/images/voice-call-active.png)
+
+*Actual connected call view. The text editor is hidden and the bars respond to microphone volume. Workspace and branch names above the call panel have been cropped out.*
+
 ## What you can do
 
 | Feature | Experience |
