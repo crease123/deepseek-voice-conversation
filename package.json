@@ -1,6 +1,6 @@
 {
   "name": "voice-call",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Voice call for DeepSeek Harness with DeepSeek or Doubao speech, microphone response, and configurable credentials",
   "type": "module",
   "packageManager": "pnpm@11.28.5",

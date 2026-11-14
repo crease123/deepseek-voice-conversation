@@ -9,9 +9,8 @@ const version = manifest.version
 const output = resolve(root, 'dist')
 await mkdir(output, { recursive: true })
 const names = ['voice-speech-doubao', 'personal-agent', 'client-ui-voice-conversation']
-const base = `https://github.com/crease123/deepseek-voice-conversation/releases/download/v${version}`
-const urls = Object.fromEntries(names.map(name => [`@deepseek-ai/dsh-${name}`, `${base}/dsh-${name}-${version}.tgz`]))
-async function pack(name, source, raw, files) {
+const internalNames = names.map(name => `@deepseek-ai/dsh-${name}`)
+async function pack(name, source, raw, files, embedded = []) {
   const stage = await mkdtemp(join(tmpdir(), 'dsh-voice-pack-'))
   try {
     const directory = join(stage, 'package')
@@ -20,10 +19,16 @@ async function pack(name, source, raw, files) {
     delete data.devDependencies; delete data.scripts; delete data.workspaces; delete data.packageManager; delete data.private
     for (const group of ['dependencies', 'peerDependencies']) {
       if (!data[group]) continue
-      data[group] = Object.fromEntries(Object.entries(data[group]).map(([key, value]) => [key, urls[key] ?? value]))
+      data[group] = Object.fromEntries(Object.entries(data[group]).map(([key, value]) => [key, internalNames.includes(key) ? version : value]))
     }
     await writeFile(join(directory, 'package.json'), JSON.stringify(data, null, 2) + '\n')
     for (const [from, to] of files) await cp(join(source, from), join(directory, to), { recursive: true })
+    for (const [packageName, archive] of embedded) {
+      const destination = join(directory, 'node_modules', packageName)
+      await mkdir(destination, { recursive: true })
+      const unpack = spawnSync('tar', ['-xzf', archive, '--strip-components=1', '-C', destination], { stdio: 'inherit' })
+      if (unpack.status !== 0) throw new Error(`Could not embed ${packageName}`)
+    }
     for (const doc of ['README.md', 'README.zh.md', 'LICENSE']) await cp(join(root, doc), join(directory, doc))
     async function cleanBuiltPaths(folder) {
       for (const entry of await readdir(folder, { withFileTypes: true })) {
@@ -52,4 +57,20 @@ for (const name of names) {
 }
 const bundle = join(root, 'packages/experimental/voice-conversation-bundle')
 const data = { ...manifest, main: 'lib/index.js', types: 'lib/types/index.d.ts', exports: { '.': { types: './lib/types/index.d.ts', default: './lib/index.js' }, './package.json': './package.json', './cordis.patch.yml': './cordis.patch.yml', './locale/*.json': './locale/*.json' }, dsh: { bundle: { patch: './cordis.patch.yml' } } }
-await pack(manifest.name, bundle, data, [['lib', 'lib'], ['locale', 'locale'], ['cordis.patch.yml', 'cordis.patch.yml']])
+// Embed our own prebuilt components. URL subdependencies are rejected by the
+// default pnpm policy used by DSH. Hoist their registry requirements so npm and
+// pnpm both install everything needed by the embedded components.
+data.bundledDependencies = internalNames
+data.dependencies = { ...manifest.dependencies }
+for (const name of names) {
+  const child = JSON.parse(await readFile(join(root, 'packages/experimental', name, 'package.json'), 'utf8'))
+  for (const group of ['dependencies', 'peerDependencies']) {
+    for (const [key, value] of Object.entries(child[group] ?? {})) {
+      if (internalNames.includes(key)) continue
+      if (data.dependencies[key] && data.dependencies[key] !== value) throw new Error(`Conflicting runtime requirement: ${key}`)
+      data.dependencies[key] = value
+    }
+  }
+}
+const embedded = names.map(name => [`@deepseek-ai/dsh-${name}`, join(output, `dsh-${name}-${version}.tgz`)])
+await pack(manifest.name, bundle, data, [['lib', 'lib'], ['locale', 'locale'], ['cordis.patch.yml', 'cordis.patch.yml']], embedded)

@@ -4,7 +4,7 @@
 
 公开 npm 包名为 `voice-call`，源码仓库为 `crease123/deepseek-voice-conversation`。可在 DSH 插件管理器中安装 `voice-call`，或运行 `dsh plugin --profile <你的-profile> add voice-call`。其他相似名称的包属于其他项目。
 
-在 DSH 插件管理器中使用 [v0.3.0 预构建发行包](https://github.com/crease123/deepseek-voice-conversation/releases/tag/v0.3.0)，或运行 `dsh plugin --profile <你的-profile> add https://github.com/crease123/deepseek-voice-conversation/releases/download/v0.3.0/voice-call-0.3.0.tgz`。DSH Desktop 请通过应用内插件管理器安装。要求 0.2.x 系列的 DSH 0.2.2-rc.1 或更新版本。发行包已包含构建产物，无需在本地编译。
+在 DSH 插件管理器中使用 [v0.3.1 预构建发行包](https://github.com/crease123/deepseek-voice-conversation/releases/tag/v0.3.1)，或运行 `dsh plugin --profile <你的-profile> add https://github.com/crease123/deepseek-voice-conversation/releases/download/v0.3.1/voice-call-0.3.1.tgz`。DSH Desktop 请通过应用内插件管理器安装。要求 0.2.x 系列的 DSH 0.2.2-rc.1 或更新版本。主发行包直接包含三个自有运行组件，外部依赖均通过 npm 解析，不再使用 GitHub URL 子依赖，兼容 pnpm 默认的 blockExoticSubdeps 检查，无需在本地编译。
 
 DeepSeek 复用你自己配置的 `DEEPSEEK_API_KEY`，插件不提供共享密钥。使用豆包时，打开「设置 → 语音通话」，分别选择识别和合成服务，填写 API Key 或旧控制台的 App ID 与 Access Token，然后点击应用。密钥只保存到宿主凭据库。新建「语音通话」模式的会话后，点击麦克风开始通话。
 
