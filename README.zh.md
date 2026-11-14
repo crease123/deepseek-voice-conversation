@@ -2,9 +2,9 @@
 
 ## 安装
 
-公开 npm 包名为 `voice-call`，源码仓库为 `crease123/deepseek-voice-conversation`。可在 DSH 插件管理器中安装 `voice-call`，或运行 `dsh plugin --profile <你的-profile> add voice-call`。其他相似名称的包属于其他项目。
+公开 npm 包名为 `voice-call`，源码仓库为 `crease123/voice-call`。可在 DSH 插件管理器中安装 `voice-call`，或运行 `dsh plugin --profile <你的-profile> add voice-call`。其他相似名称的包属于其他项目。
 
-在 DSH 插件管理器中使用 [v0.3.1 预构建发行包](https://github.com/crease123/deepseek-voice-conversation/releases/tag/v0.3.1)，或运行 `dsh plugin --profile <你的-profile> add https://github.com/crease123/deepseek-voice-conversation/releases/download/v0.3.1/voice-call-0.3.1.tgz`。DSH Desktop 请通过应用内插件管理器安装。要求 0.2.x 系列的 DSH 0.2.2-rc.1 或更新版本。主发行包直接包含三个自有运行组件，外部依赖均通过 npm 解析，不再使用 GitHub URL 子依赖，兼容 pnpm 默认的 blockExoticSubdeps 检查，无需在本地编译。
+在 DSH 插件管理器中使用 [v0.3.2 预构建发行包](https://github.com/crease123/voice-call/releases/tag/v0.3.2)，或运行 `dsh plugin --profile <你的-profile> add https://github.com/crease123/voice-call/releases/download/v0.3.2/voice-call-0.3.2.tgz`。DSH Desktop 请通过应用内插件管理器安装。要求 0.2.x 系列的 DSH 0.2.2-rc.1 或更新版本。主发行包直接包含三个自有运行组件，外部依赖均通过 npm 解析，不再使用 GitHub URL 子依赖，兼容 pnpm 默认的 blockExoticSubdeps 检查，无需在本地编译。
 
 DeepSeek 复用你自己配置的 `DEEPSEEK_API_KEY`，插件不提供共享密钥。使用豆包时，打开「设置 → 语音通话」，分别选择识别和合成服务，填写 API Key 或旧控制台的 App ID 与 Access Token，然后点击应用。密钥只保存到宿主凭据库。新建「语音通话」模式的会话后，点击麦克风开始通话。
 
@@ -23,11 +23,11 @@ DeepSeek 复用你自己配置的 `DEEPSEEK_API_KEY`，插件不提供共享密�
 ```yaml
 - insert:
     - id: voice-speech-doubao
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/voice-speech-doubao/src/index.ts'
     - id: personal-agent
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/personal-agent/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/personal-agent/src/index.ts'
     - id: client-ui-voice-conversation
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
 从本仓库源码运行时，先安装本工作区依赖，并设置 `DSH_HARNESS_ROOT` 指向匹配版本的 Harness checkout；发布包安装时由包管理器解析对应的 Harness 版本。把源码入口写入 profile 自有补丁后，设置面板才能把音色、语速、音高、语气、播放音量、打断灵敏度和持续说话时长保存到该 profile。命令行 `--patch` 覆盖层只适合临时组合，不能作为可写设置归属层。

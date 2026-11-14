@@ -41,16 +41,16 @@ pnpm dsh voice-conversation --from-default-profile web --dump-config
 
 For source development, build the local Client bundle using the [repository guide](../../../README.md#build-the-local-client-bundle) before starting the profile.
 
-Run this initialization only once: `--from-default-profile` replaces the named profile directory, including its existing patch and dependencies. Edit `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml` (`~/.dsh/profiles/voice-conversation/cordis.patch.yml` by default) and insert both plugins there, replacing `/absolute/path/to/deepseek-voice-conversation` with this checkout’s absolute path:
+Run this initialization only once: `--from-default-profile` replaces the named profile directory, including its existing patch and dependencies. Edit `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml` (`~/.dsh/profiles/voice-conversation/cordis.patch.yml` by default) and insert both plugins there, replacing `/absolute/path/to/voice-call` with this checkout’s absolute path:
 
 ```yaml
 - insert:
     - id: voice-speech-doubao
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/voice-speech-doubao/src/index.ts'
     - id: personal-agent
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/personal-agent/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/personal-agent/src/index.ts'
     - id: client-ui-voice-conversation
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
 Start this profile without the initialization flag:

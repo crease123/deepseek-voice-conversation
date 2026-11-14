@@ -41,16 +41,16 @@ pnpm dsh voice-conversation --from-default-profile web --dump-config
 
 源码开发时，启动 profile 前先按照[仓库指南](../../../README.zh.md#构建本地-client-产物)构建本地 Client 产物。
 
-仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入三个插件，并将 `/absolute/path/to/deepseek-voice-conversation` 替换为当前检出目录的绝对路径：
+仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入三个插件，并将 `/absolute/path/to/voice-call` 替换为当前检出目录的绝对路径：
 
 ```yaml
 - insert:
     - id: voice-speech-doubao
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/voice-speech-doubao/src/index.ts'
     - id: personal-agent
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/personal-agent/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/personal-agent/src/index.ts'
     - id: client-ui-voice-conversation
-      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
+      name: '/absolute/path/to/voice-call/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
 
 之后启动此 profile 时省略初始化参数：

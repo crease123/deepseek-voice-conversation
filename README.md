@@ -2,9 +2,9 @@
 
 ## Install
 
-The public npm package is `voice-call`, maintained from `crease123/deepseek-voice-conversation`. In the DSH plugin manager, install `voice-call`, or run `dsh plugin --profile <your-profile> add voice-call`. Other similarly named packages belong to other projects.
+The public npm package is `voice-call`, maintained from `crease123/voice-call`. In the DSH plugin manager, install `voice-call`, or run `dsh plugin --profile <your-profile> add voice-call`. Other similarly named packages belong to other projects.
 
-Use the prebuilt [v0.3.1 release](https://github.com/crease123/deepseek-voice-conversation/releases/tag/v0.3.1) in the DSH plugin manager, or run `dsh plugin --profile <your-profile> add https://github.com/crease123/deepseek-voice-conversation/releases/download/v0.3.1/voice-call-0.3.1.tgz`. DSH Desktop users should install through the app. Requires DSH 0.2.2-rc.1 or later in the 0.2.x line. Releases embed the three prebuilt runtime components in the main package. Their external dependencies resolve from npm, with no GitHub URL subdependencies, so installation works with pnpm’s default blockExoticSubdeps policy. No local build is required.
+Use the prebuilt [v0.3.2 release](https://github.com/crease123/voice-call/releases/tag/v0.3.2) in the DSH plugin manager, or run `dsh plugin --profile <your-profile> add https://github.com/crease123/voice-call/releases/download/v0.3.2/voice-call-0.3.2.tgz`. DSH Desktop users should install through the app. Requires DSH 0.2.2-rc.1 or later in the 0.2.x line. Releases embed the three prebuilt runtime components in the main package. Their external dependencies resolve from npm, with no GitHub URL subdependencies, so installation works with pnpm’s default blockExoticSubdeps policy. No local build is required.
 
 DeepSeek reuses your own `DEEPSEEK_API_KEY`; this plugin does not supply a shared key. For Doubao, open Settings → Voice call, select Doubao for ASR and/or TTS, then enter your API key or legacy App ID and Access token and Apply. Credentials stay in the Host credential store. Open a conversation in Voice call mode and press the microphone to begin.
 

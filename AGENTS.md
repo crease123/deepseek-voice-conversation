@@ -1,4 +1,4 @@
-# DeepSeek voice conversation plugin
+# Voice call plugin
 
 这是独立维护的 DeepSeek Harness 语音通话插件仓库，包含豆包 Host 语音服务、Client 通话控件和可安装组合包。
 
