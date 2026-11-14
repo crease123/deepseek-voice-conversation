@@ -141,3 +141,5 @@ Read more: [Speech subsystem](docs/voice-conversation.md) · [Call context](pack
 MIT License. Never commit API keys or tokens, or include them in issues or screenshots.
 
 Version 0.3.4 preserves speech playback ownership when runtime context is injected, fixing silent first replies after starting a call.
+
+Continued speech while recognition is pending is retained and merged in order before submission; speaking during an Agent reply still interrupts playback.

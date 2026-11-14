@@ -160,14 +160,32 @@ describe('voice call admission', () => {
     await b.call.dispose()
   })
 
-  it('drops late recognition after a new speech onset and admits only the newer utterance', async () => {
+  it('merges recognition across a pause instead of discarding the earlier utterance', async () => {
     const b = fixture(), first = Promise.withResolvers<RemoteResult<VoiceTranscript>>()
     b.transcribe.mockReturnValueOnce(first.promise)
     await b.call.start(); b.voice(); b.silence()
     await vi.waitFor(() => { expect(b.transcribe).toHaveBeenCalledOnce() })
-    b.voice(); b.silence(); first.resolve({ ok: true, value: { text: '旧识别' } })
+    b.voice(); b.silence(); first.resolve({ ok: true, value: { text: '前半句' } })
     await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
-    expect(b.prompt.mock.calls[0]![0]).toEqual([{ type: 'text', text: '你好' }])
+    expect(b.prompt.mock.calls[0]![0]).toEqual([{ type: 'text', text: '前半句 你好' }])
+    await b.call.dispose()
+  })
+
+  it('waits for resumed speech to end even when the earlier ASR finishes mid-recording', async () => {
+    const b = fixture(), first = Promise.withResolvers<RemoteResult<VoiceTranscript>>()
+    b.transcribe.mockReturnValueOnce(first.promise)
+    await b.call.start(); b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.transcribe).toHaveBeenCalledOnce() })
+    const signal = b.transcribe.mock.calls[0]![1]
+    b.voice()
+    expect(signal?.aborted).toBe(false)
+    first.resolve({ ok: true, value: { text: '前半句' } })
+    await vi.waitFor(() => { expect(b.publish).toHaveBeenCalled() })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(b.prompt).not.toHaveBeenCalled()
+    b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    expect(b.prompt.mock.calls[0]![0]).toEqual([{ type: 'text', text: '前半句 你好' }])
     await b.call.dispose()
   })
 

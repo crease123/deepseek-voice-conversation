@@ -42,6 +42,8 @@ export class VoiceCall {
   private lastTurnStartSeq = -1
   private lastTurnEndSeq = -1
   private pendingInput: PendingVoiceInput | undefined
+  private recording = false
+  private transcriptParts: string[] = []
   private queuedUtterances = 0
   private speaking = 0
   private disposeEvents = (): void => {}
@@ -113,6 +115,7 @@ export class VoiceCall {
       })
       let utteranceGeneration = 0
       const vad = new UtteranceDetector(catalog, () => { utteranceGeneration = this.interrupt() }, (samples) => {
+        this.recording = false
         this.recognize(samples, utteranceGeneration)
       })
       this.vad = vad
@@ -146,10 +149,10 @@ export class VoiceCall {
   }
 
   private interrupt(): number {
-    const generation = ++this.generation
+    const generation = this.generation
+    this.recording = true
     if (this.lifetime.signal.aborted) return generation
     if (this.warning !== undefined) { this.warning = undefined; this.publishLive('listening') }
-    this.recognition?.abort()
     const pending = this.pendingInput
     this.output?.reset()
     const admission = this.admission, previous = this.cancellation
@@ -249,26 +252,35 @@ export class VoiceCall {
         if (signal.aborted || generation !== this.generation) return
         if (!result.ok) { this.fail('recognition'); return }
         const text = result.value.text.trim()
-        if (!text) { this.publishLive('listening'); return }
-        await this.cancellation
-        if (this.stopped() || generation !== this.generation) return
-        const submission = this.binding.session.beginSubmission({ text, mode: 'queue', attachments: [] })
-        this.pendingInput = { requestId: submission.requestId, afterSeq: this.eventSeq, outcome: 'unseen' }
-        this.output?.expect(submission.requestId)
-        this.publishLive('thinking')
-        this.admission = (async () => {
-          try {
-            const accepted = await this.binding.session.prompt([{ type: 'text', text }], 'queue', this.lifetime.signal, submission.requestId)
-            if (!accepted.ok && !this.lifetime.signal.aborted) this.fail('submission')
-          } catch (_error) {
-            submission.abandon()
-            if (!this.lifetime.signal.aborted) this.fail('submission')
-          }
-        })()
-        await this.admission
+        if (text) this.transcriptParts.push(text)
       } catch (_error) { if (!this.lifetime.signal.aborted && generation === this.generation) this.fail('recognition') }
-      finally { this.queuedUtterances-- }
+      finally {
+        this.queuedUtterances--
+        await this.submitTranscript(generation)
+      }
     }))
+  }
+
+  private async submitTranscript(generation: number): Promise<void> {
+    await this.cancellation
+    if (this.stopped() || generation !== this.generation || this.recording || this.queuedUtterances > 0) return
+    const text = this.transcriptParts.join(' ').trim()
+    this.transcriptParts = []
+    if (!text) { this.publishLive('listening'); return }
+    const submission = this.binding.session.beginSubmission({ text, mode: 'queue', attachments: [] })
+    this.pendingInput = { requestId: submission.requestId, afterSeq: this.eventSeq, outcome: 'unseen' }
+    this.output?.expect(submission.requestId)
+    this.publishLive('thinking')
+    this.admission = (async () => {
+      try {
+        const accepted = await this.binding.session.prompt([{ type: 'text', text }], 'queue', this.lifetime.signal, submission.requestId)
+        if (!accepted.ok && !this.lifetime.signal.aborted) this.fail('submission')
+      } catch (_error) {
+        submission.abandon()
+        if (!this.lifetime.signal.aborted) this.fail('submission')
+      }
+    })()
+    await this.admission
   }
 
   private speak(text: string, sampleRate: number): void {
@@ -355,7 +367,7 @@ export class VoiceCall {
   private async acquirePause(lease: symbol): Promise<void> {
     const wasPaused = this.paused
     this.pauseLeases.add(lease)
-    if (!wasPaused) { this.generation++; this.recognition?.abort(); this.vad?.reset() }
+    if (!wasPaused) { this.recording = false; this.transcriptParts = []; this.generation++; this.recognition?.abort(); this.vad?.reset() }
     this.publishLive('listening')
     try { await this.synchronizeAudio() }
     catch (error) { if (!this.stopped()) this.fail('playback'); throw error }

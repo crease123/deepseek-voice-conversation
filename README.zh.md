@@ -141,3 +141,5 @@ DSH_HARNESS_ROOT=/absolute/path/to/deepseek-harness pnpm run build
 MIT License。请勿向仓库、Issue 或截图提交 API Key、Token 等凭据。
 
 0.3.4 修复开始通话后首个回复可能无声的问题：运行时提示词更新不再清除当前回复的朗读标记。
+
+识别尚未完成时继续说话，会保留前段内容并按顺序合并提交；Agent 回答期间开口仍会打断播报。
