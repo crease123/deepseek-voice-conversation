@@ -28,6 +28,11 @@ export interface VoiceSpeaker {
 
 /** Recording and playback settings shared with the voice-call Client. */
 export interface VoiceSpeechCatalog {
+  /** Reference names only; secret values never leave the Host. */
+  credentialRefs?: { apiKey: string; appId: string; accessToken: string }
+  asrProvider?: 'deepseek' | 'doubao'
+  ttsProvider?: 'deepseek' | 'doubao'
+  deepseekSpeaker?: 'stella' | 'tide'
   /** Current saved selection; a request preview never changes it. */
   voice: VoicePreferences
   /** Compatible speaker presets, including the configured custom speaker when needed. */
@@ -62,6 +67,7 @@ export interface VoiceTranscript {
 
 /** One sentence to synthesize using the configured voice. */
 export interface VoiceSynthesisRequest {
+  deepseekSpeaker?: 'stella' | 'tide'
   /** Plain text to speak. */
   text: string
   /** Complete preview selection; omission captures the current saved Host defaults. */
@@ -70,6 +76,8 @@ export interface VoiceSynthesisRequest {
 
 /** One consecutive PCM16 little-endian mono audio chunk. */
 export interface VoiceAudioChunk {
+  /** Actual rate for this request, including after provider changes. */
+  sampleRate?: number
   /** Canonical base64 audio, using the catalog's sample rate. */
   audio: string
 }

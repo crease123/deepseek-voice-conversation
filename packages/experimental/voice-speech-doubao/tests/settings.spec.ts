@@ -25,7 +25,7 @@ async function profileFixture(placement: 'bundle' | 'overlay' | 'profile' = 'bun
     { id: 'settings', name: 'cordis:settings' },
     { id: 'typert', name: 'cordis:typert' },
     ...(placement === 'bundle' ? [{ id: 'voice-speech-doubao', name: 'cordis:speech', config: {
-      asrUrl: 'ws://127.0.0.1:1/asr', ttsUrl: 'http://127.0.0.1:1/tts', silenceMs: 150,
+      asrProvider: 'doubao', ttsProvider: 'doubao', asrUrl: 'ws://127.0.0.1:1/asr', ttsUrl: 'http://127.0.0.1:1/tts', silenceMs: 150,
     } }] : []),
   ] }]))
   await writeFile(join(dir, 'cordis.yml'), '[]\n')
@@ -66,7 +66,7 @@ it.each(['bundle', 'profile'] as const)('saves all voice settings for a %s-owned
   const descriptor = ctx.settings.describe().find(item => item.ns === namespace)
   if (!descriptor) throw new Error('Missing speech configuration form')
   expect(descriptor.autoGenerate).toBe(false)
-  const fields = { speaker: 'zh_female_vv_uranus_bigtts', speechRate: 100, pitch: 12, style: 'gentle', threshold: 10 ** -1.5, minSpeechMs: 200 }
+  const fields = { asrProvider: 'deepseek', ttsProvider: 'deepseek', deepseekSpeaker: 'tide', speaker: 'zh_female_vv_uranus_bigtts', speechRate: 100, pitch: 12, style: 'gentle', threshold: 10 ** -1.5, minSpeechMs: 200 }
   await ctx.settings.mutate(namespace, Object.entries(fields).map(([field, value]) => ({ op: 'set', path: [field], value })), descriptor.revision)
   expect(entry.fiber === fiber).toBe(true)
   expect(api.catalog(new AbortController().signal)).toMatchObject({
@@ -97,7 +97,7 @@ it('rejects saving a source entry inserted only by the process overlay', async (
   if (!api) throw new Error('Speech service did not start')
   const before = api.catalog(new AbortController().signal)
   if (!before.settingsNamespace) throw new Error('Speech settings are not addressable')
-  const fields = { speaker: 'zh_female_vv_uranus_bigtts', speechRate: 100, pitch: 12, style: 'gentle', threshold: 10 ** -1.5, minSpeechMs: 200 }
+  const fields = { asrProvider: 'deepseek', ttsProvider: 'deepseek', deepseekSpeaker: 'tide', speaker: 'zh_female_vv_uranus_bigtts', speechRate: 100, pitch: 12, style: 'gentle', threshold: 10 ** -1.5, minSpeechMs: 200 }
   const persisted = await readFile(profile.patchPath, 'utf8')
   await expect(ctx.settings.mutate(before.settingsNamespace, Object.entries(fields).map(([field, value]) => ({ op: 'set', path: [field], value })))).rejects.toThrow('overridden by a home patch or command-line overlay')
   expect(api.catalog(new AbortController().signal)).toEqual(before)

@@ -8,6 +8,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { VoiceConversation, type VoiceConversationProps } from '../src/client/VoiceConversation.tsx'
 import { en } from '../src/client/locales.ts'
+import { publishVoiceLevel } from '../src/client/levels.ts'
 import type { CallState } from '../src/client/call.ts'
 
 afterEach(cleanup)
@@ -41,10 +42,33 @@ it('shows recovery advice with retry and disables starting in a locked composer'
   expect(screen.getByRole('button', { name: 'Retry voice call' }).hasAttribute('disabled')).toBe(true)
 })
 
+it('keeps the live call and hangup action available beside a synthesis warning', () => {
+  const b = fixture({ phase: 'listening', warning: 'synthesis' })
+  render(createElement(VoiceConversation, b.props))
+  expect(screen.getByRole('status').textContent).toBe('Listening')
+  expect(screen.getByRole('alert').textContent).toBe(en.synthesis)
+  expect(b.props.onActiveChange).toHaveBeenLastCalledWith(true)
+  expect(screen.queryByRole('button', { name: 'Retry voice call' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Hang up voice call' }))
+  expect(b.props.hangup).toHaveBeenCalledWith(id)
+})
+
 it('hangs up the old Session when switching and releases toolbar expansion on unmount', () => {
   const b = fixture({ phase: 'recognizing' }), view = render(createElement(VoiceConversation, b.props))
   view.rerender(createElement(VoiceConversation, { ...b.props, sessionId: 'another-session' as SessionId }))
   expect(b.props.hangup).toHaveBeenCalledWith(id)
   expect(screen.getByRole('button', { name: 'Start voice call' })).toBeTruthy()
   view.unmount(); expect(b.props.hangup).toHaveBeenCalledWith('another-session')
+})
+
+it('renders the microphone level on the active call and releases its subscription', () => {
+  const b = fixture({ phase: 'listening' }), view = render(createElement(VoiceConversation, b.props))
+  const panel = view.container.querySelector<HTMLElement>('[data-voice-active]')
+  expect(panel).not.toBeNull()
+  expect(panel?.querySelector('[data-voice-bars]')?.children).toHaveLength(5)
+  act(() => publishVoiceLevel(id, .6))
+  expect(panel?.style.getPropertyValue('--voice-level')).toBe('0.6')
+  view.unmount()
+  act(() => publishVoiceLevel(id, .9))
+  expect(panel?.style.getPropertyValue('--voice-level')).toBe('0.6')
 })

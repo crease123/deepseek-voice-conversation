@@ -1,6 +1,7 @@
 /** Plugin-owned call instances, Session references, and Remote contribution. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -8,15 +9,17 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-voice-speech-doubao/remote'
+import type {} from '@deepseek-ai/dsh-personal-agent/remote'
 import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { publishVoiceLevel } from './levels.ts'
 import { BrowserCallAudio } from './audio.ts'
 import { VoiceCall, type CallState } from './call.ts'
 import { VoiceConversation, type VoiceConversationInjected } from './VoiceConversation.tsx'
 import { NS, en, zh, ja, es, fr, de, ru, pt } from './locales.ts'
 import { VoiceSettingsController, createVoiceVolume, type VoiceSettingsValues } from './settings-controller.ts'
-import { VoiceSettingsDialog, VoiceSettingsRow, type VoiceSettingsInjected } from './VoiceSettings.tsx'
+import { VoiceSettingsPage, type VoiceSettingsInjected } from './VoiceSettings.tsx'
 import { SETTINGS_NS, settingsEn, settingsZh, settingsJa, settingsEs, settingsFr, settingsDe, settingsRu, settingsPt } from './settings-locales.ts'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' {
@@ -35,6 +38,10 @@ function registerUi(ctx: Context): void {
   const volume = createVoiceVolume()
   const settings = new VoiceSettingsController({
     remote: ctx.remote.voiceSpeech,
+    credentials: {
+      describe: async refs => { const response = await ctx.remote.credentials.describe(refs); if (!response.ok) throw new Error('Credential status unavailable'); return response.value },
+      set: async (ref, value) => { const response = await ctx.remote.credentials.set(ref, value); if (!response.ok) throw new Error('Credential could not be saved') },
+    },
     form: namespace => ctx.configForms.get<VoiceSettingsValues>(namespace),
     ensure: () => ctx.configForms.describe().ensure(),
     inherited: (namespace, base) => {
@@ -56,18 +63,16 @@ function registerUi(ctx: Context): void {
   })
   const settingsActions: VoiceSettingsInjected = {
     hooks: { voiceSettings: settings.state }, open: (example) => { settings.open(example) }, close: () => { settings.close() },
-    edit: (key, value) => { settings.edit(key, value) }, example: (text) => { settings.example(text) },
+    edit: (key, value) => { settings.edit(key, value) }, credential: (key, value) => { settings.editCredential(key, value) }, example: (text) => { settings.example(text) },
     play: () => { settings.play() }, stop: () => settings.stop(), defaults: () => { settings.defaults() }, apply: () => settings.apply(),
   }
   ctx.effect(() => ctx.locale.register(SETTINGS_NS, {
     en: settingsEn, zh: settingsZh, ja: settingsJa, es: settingsEs, fr: settingsFr, de: settingsDe, ru: settingsRu, pt: settingsPt,
   }))
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item', id: 'voice-conversation', order: 17, locale: SETTINGS_NS, inject: () => settingsActions,
-  }, VoiceSettingsRow))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay', id: 'voice-conversation.settings', locale: SETTINGS_NS, inject: () => settingsActions,
-  }, VoiceSettingsDialog))
+  const settingsT = ctx.locale.bind(SETTINGS_NS)
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section', id: 'voice-conversation', order: 16, label: () => settingsT('title'), locale: SETTINGS_NS, inject: () => settingsActions,
+  }, VoiceSettingsPage))
   const state = createSnapshotStore<ReadonlyMap<SessionId, CallState>>(new Map())
   const closing = new Set<Promise<void>>()
   let disposed = false
@@ -85,20 +90,24 @@ function registerUi(ctx: Context): void {
     start: (id) => {
       if (disposed || calls.has(id)) return
       const reference = ctx.sessions.retain(id, { source: 'voiceConversation' })
-      const audio = new BrowserCallAudio(() => volume.getSnapshot().volume)
-      const call = new VoiceCall(reference.binding, ctx.remote.voiceSpeech, audio, (next) => { publish(id, next) }, () => {
+      const audio = new BrowserCallAudio(() => volume.getSnapshot().volume, level => publishVoiceLevel(id, level))
+      const call = new VoiceCall(reference.binding, ctx.remote.voiceSpeech, ctx.remote.personalAgent, audio, (next) => { publish(id, next) }, () => {
         if (calls.get(id) === call) calls.delete(id)
         reference.release()
       }, reference.ready, initial => settings.detection(initial))
       calls.set(id, call)
+      void call.setBackgrounded(document.hidden)
       void call.start()
     },
   }
-  const hidden = (): void => { if (document.hidden) for (const id of calls.keys()) end(id) }
-  document.addEventListener('visibilitychange', hidden)
+  const synchronizeVisibility = (): void => {
+    const hidden = document.hidden
+    void Promise.allSettled([...calls.values()].map(call => call.setBackgrounded(hidden)))
+  }
+  document.addEventListener('visibilitychange', synchronizeVisibility)
   ctx.effect(() => async () => {
     disposed = true
-    document.removeEventListener('visibilitychange', hidden)
+    document.removeEventListener('visibilitychange', synchronizeVisibility)
     await Promise.allSettled([settings.dispose(), ...[...calls.values()].map(call => call.dispose())])
     await Promise.allSettled([...closing])
   })
@@ -115,7 +124,7 @@ function registerUi(ctx: Context): void {
  */
 export async function mountVoiceConversation(ctx: Context, contribution: TypertRemoteContribution): Promise<() => Promise<void>> {
   const remote = await ctx.remote.$mount(contribution)
-  const ui = ctx.inject(['remote', 'remote.voiceSpeech', 'slots', 'locale', 'sessions', 'configForms', 'settingsSchema'], registerUi)
+  const ui = ctx.inject(['remote', 'remote.voiceSpeech', 'remote.personalAgent', 'remote.credentials', 'slots', 'locale', 'sessions', 'configForms', 'settingsSchema'], registerUi)
   try { await ui } catch (error) { await ui.dispose(); await remote(); throw error }
   return async () => { await ui.dispose(); await remote() }
 }

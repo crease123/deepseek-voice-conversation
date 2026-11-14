@@ -34,11 +34,11 @@ export interface CallAudio {
   drain(): Promise<void>
   /** Stop every scheduled source immediately. */
   stopPlayback(): void
-  /** Suspend capture processing and playback while a separate preview owns output.
+  /** Suspend capture processing and playback while a call pause is held.
    * @returns after the audio context is suspended.
    */
   pause(): Promise<void>
-  /** Resume the existing audio resources after a preview.
+  /** Resume the existing audio resources after the call pause ends.
    * @returns after the context resumes.
    */
   resume(): Promise<void>
@@ -70,7 +70,7 @@ export class BrowserCallAudio implements CallAudio {
   private closed = false
   private disposal: Promise<void> | undefined
 
-  constructor(private readonly volume: () => number = () => 1) {}
+  constructor(private readonly volume: () => number = () => 1, private readonly meter: (level: number) => void = () => {}) {}
 
   async activate(): Promise<void> {
     if (typeof AudioContext === 'undefined' || typeof AudioWorkletNode === 'undefined' || !(navigator as Partial<Navigator>).mediaDevices) {
@@ -118,6 +118,9 @@ export class BrowserCallAudio implements CallAudio {
     this.worklet.port.onmessage = (event: MessageEvent<unknown>) => {
       if (this.closed || signal.aborted) return
       if (!(event.data instanceof Float32Array)) { failure(); return }
+      let energy = 0
+      for (const sample of event.data) energy += sample * sample
+      this.meter(Math.min(1, Math.sqrt(energy / event.data.length) * 8))
       frame(event.data)
     }
     this.worklet.onprocessorerror = failure
@@ -154,13 +157,14 @@ export class BrowserCallAudio implements CallAudio {
     this.nextTime = 0
   }
 
-  async pause(): Promise<void> { if (!this.closed && this.context) await this.context.suspend() }
+  async pause(): Promise<void> { this.meter(0); if (!this.closed && this.context) await this.context.suspend() }
 
   async resume(): Promise<void> { if (!this.closed && this.context) await this.context.resume() }
 
   dispose(): Promise<void> {
     if (this.disposal) return this.disposal
     this.closed = true
+    this.meter(0)
     this.stopPlayback()
     this.source?.disconnect()
     if (this.worklet) {

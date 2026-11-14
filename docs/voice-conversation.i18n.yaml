@@ -1,19 +1,22 @@
 # Bilingual-pair consistency record for voice-conversation.md (docs/i18n/README.md): per heading
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write docs/subsystems/voice-conversation.md
+#   pnpm run verify-translation-pairing --write docs/voice-conversation.md
 /voice-conversation:
-  en: 60c08f1f1094f8ae
-  zh: cbd670ca399b5bfa
+  en: 899bf51b47ab14f7
+  zh: 511cf75ce432f930
 /voice-conversation/speech-operations:
-  en: 253f9953d0fc5ed8
-  zh: cf3627b4e3dba775
+  en: c27c0ec7b0514c4a
+  zh: 8a542db3423328ba
+/voice-conversation/personal-agent-and-communication-state:
+  en: 0c679d45a02fcf18
+  zh: 5c16adab0b6b033f
 /voice-conversation/session-and-playback-ownership:
-  en: 7fa6c8129c042af7
-  zh: 3cdfbae069c946a4
+  en: 6eefe4d7e7f58a2a
+  zh: a23c764bdb42cc7b
 /voice-conversation/interruption-and-disposal:
-  en: 888a7aba951a3501
-  zh: 45b3fd5e59d8538a
+  en: b48ceb593f89b83d
+  zh: 65c7187d643db946
 /voice-conversation/package-integration:
   en: b191c936641b8a55
   zh: b94a7454c0fb3ff2

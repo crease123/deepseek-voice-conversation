@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-voice-conversation-bundle",
   "description": "Optional continuous voice conversations with Doubao speech and the current Session agent",
-  "version": "0.2.2-rc.1",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },
@@ -27,7 +27,8 @@
   "license": "MIT",
   "dependencies": {
     "@deepseek-ai/dsh-voice-speech-doubao": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-voice-conversation": "workspace:*"
+    "@deepseek-ai/dsh-client-ui-voice-conversation": "workspace:*",
+    "@deepseek-ai/dsh-personal-agent": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.1.0"
@@ -42,5 +43,10 @@
   },
   "scripts": {
     "bundle": "tsdown"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crease123/deepseek-voice-conversation.git",
+    "directory": "packages/experimental/voice-conversation-bundle"
   }
 }

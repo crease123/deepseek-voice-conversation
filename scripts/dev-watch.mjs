@@ -14,6 +14,7 @@ if (process.env.DSH_HARNESS_ROOT === undefined) {
 }
 
 const hostDir = join(repoRoot, 'packages/experimental/voice-speech-doubao')
+const personalDir = join(repoRoot, 'packages/experimental/personal-agent')
 const clientDir = join(repoRoot, 'packages/experimental/client-ui-voice-conversation')
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const useProcessGroups = process.platform !== 'win32'
@@ -103,7 +104,7 @@ const tscArgs = (dir) => [
 ]
 
 // tsdown consumes checked emitted modules; keep the last bundle if checking fails.
-for (const dir of [hostDir, clientDir]) {
+for (const dir of [hostDir, personalDir, clientDir]) {
   const code = await run(['exec', 'tsc', ...tscArgs(dir)])
   if (stopping) await shutdown
   if (code !== 0) await stop(code)
@@ -112,6 +113,8 @@ for (const dir of [hostDir, clientDir]) {
 const tasks = [
   { name: 'tsc host', args: ['exec', 'tsc', '--watch', '--preserveWatchOutput', ...tscArgs(hostDir)] },
   { name: 'tsdown host', args: ['--filter', '@deepseek-ai/dsh-voice-speech-doubao', 'exec', 'tsdown', '--watch'] },
+  { name: 'tsc personal', args: ['exec', 'tsc', '--watch', '--preserveWatchOutput', ...tscArgs(personalDir)] },
+  { name: 'tsdown personal', args: ['--filter', '@deepseek-ai/dsh-personal-agent', 'exec', 'tsdown', '--watch'] },
   { name: 'tsc client', args: ['exec', 'tsc', '--watch', '--preserveWatchOutput', ...tscArgs(clientDir)] },
   { name: 'tsdown client', args: ['--filter', '@deepseek-ai/dsh-client-ui-voice-conversation', 'exec', 'tsdown', '--watch', '--env.DSH_BUILD_FACE=client'] },
 ]

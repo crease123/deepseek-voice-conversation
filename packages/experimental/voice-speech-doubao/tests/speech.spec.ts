@@ -55,7 +55,7 @@ async function fixture(handler: (request: IncomingMessage, response: ServerRespo
   const ctx = new Context()
   ctx.provide('credentials', { resolve: async (key: string) => credentials[key] === undefined ? undefined : { value: credentials[key], source: 'test' } } as never)
   cleanups.push(async () => { await ctx.fiber.dispose() })
-  const raw: Options = { asrUrl: `ws://127.0.0.1:${address.port}/asr`, ttsUrl: `http://127.0.0.1:${address.port}/tts`, ...patch }
+  const raw: Options = { asrProvider: 'doubao', ttsProvider: 'doubao', asrUrl: `ws://127.0.0.1:${address.port}/asr`, ttsUrl: `http://127.0.0.1:${address.port}/tts`, ...patch }
   const config = VoiceSpeechDoubao.Config(raw)
   if (!live) return { ctx, api: new VoiceSpeechDoubao(ctx, config), config, sockets, entry: undefined }
   await ctx.plugin(Loader)
@@ -247,7 +247,7 @@ it('updates live preferences without remounting or changing an accepted synthesi
   expect(() => entry.fiber?.resolveConfig({ ...raw, maxUtteranceMs: 300 })).toThrow('minSpeechMs')
   expect(() => entry.fiber?.resolveConfig({ ...raw, speaker: 'custom-without-instructions' })).toThrow('delivery style')
   release.resolve(undefined)
-  expect(await pending).toEqual([{ audio: 'AQACAA==' }])
+  expect(await pending).toEqual([{ audio: 'AQACAA==', sampleRate: 24000 }])
   await collect(f.api.synthesize({ text: '再见' }, signal))
   expect(bodies[0]?.req_params).toMatchObject({ speaker: 'zh_female_xiaohe_uranus_bigtts', audio_params: { speech_rate: 0 } })
   expect(JSON.parse(bodies[0]!.req_params.additions)).toEqual({ post_process: { pitch: 0 } })
@@ -294,7 +294,7 @@ it('service disposal closes the upstream stream while its consumer is paused aft
     output.once('close', () => { peerClosed.resolve(undefined) })
   })
   const iterator = f.api.synthesize({ text: '你好' }, new AbortController().signal)[Symbol.asyncIterator]()
-  expect((await iterator.next()).value).toEqual({ audio: 'AQACAA==' })
+  expect((await iterator.next()).value).toEqual({ audio: 'AQACAA==', sampleRate: 24000 })
   await f.ctx.fiber.dispose()
   await peerClosed.promise
   await expect(iterator.next()).rejects.toThrow('unloaded')

@@ -5,13 +5,17 @@ import type { VoicePreferences, VoiceSpeechCatalog } from '@deepseek-ai/dsh-voic
 import type { CallAudio } from './audio.ts'
 import type { SpeechRemote } from './call.ts'
 
+/** Credential references are supplied by the Host; only presence is readable. */
+export interface VoiceCredential { ref: string; configured: boolean; writable: boolean }
 /** Host-owned fields editable by the voice settings form. */
-export interface VoiceSettingsValues extends VoicePreferences { threshold: number; minSpeechMs: number }
+export interface VoiceSettingsValues extends VoicePreferences { threshold: number; minSpeechMs: number; asrProvider?: 'deepseek' | 'doubao'; ttsProvider?: 'deepseek' | 'doubao'; deepseekSpeaker?: 'stella' | 'tide' }
 /** A panel draft includes device-local gain without adding it to Host settings. */
 export interface VoiceSettingsDraft extends VoiceSettingsValues { volume: number }
 /** Immutable panel state; opening starts a new draft from accepted values. */
 export interface VoiceSettingsState {
   open: boolean
+  credentials?: Record<'apiKey' | 'appId' | 'accessToken', VoiceCredential>
+  credentialDraft?: Partial<Record<'apiKey' | 'appId' | 'accessToken', string>>
   catalog?: VoiceSpeechCatalog
   draft?: VoiceSettingsDraft
   example: string
@@ -23,6 +27,7 @@ export interface VoiceSettingsState {
 /** Settings services and audio resources owned by this plugin instance. */
 export interface VoiceSettingsDependencies {
   remote: SpeechRemote
+  credentials?: { describe: (refs: string[]) => Promise<Record<string, { configured: boolean; writable: boolean }>>; set: (ref: string, value: string) => Promise<void> }
   form: (namespace: string) => ConfigForm<VoiceSettingsValues>
   ensure: () => Promise<void>
   inherited: (namespace: string, base: unknown) => VoiceSettingsValues
@@ -75,17 +80,35 @@ export class VoiceSettingsController {
         await this.untilAborted(this.dependencies.ensure(), signal)
         if (signal.aborted) return
         const catalog = result.value
+        let credentials: VoiceSettingsState['credentials']
+        if (catalog.credentialRefs && this.dependencies.credentials) {
+          const refs = catalog.credentialRefs
+          const infos = await this.untilAborted(this.dependencies.credentials.describe(Object.values(refs)), signal)
+          credentials = {
+            apiKey: { ref: refs.apiKey, ...infos[refs.apiKey]! },
+            appId: { ref: refs.appId, ...infos[refs.appId]! },
+            accessToken: { ref: refs.accessToken, ...infos[refs.accessToken]! },
+          }
+        }
         this.form = catalog.settingsNamespace === undefined ? undefined : this.dependencies.form(catalog.settingsNamespace)
         const saved = this.form?.getSnapshot()
         this.revision = saved?.revision
-        const values = saved?.status === 'ready' && saved.value !== undefined ? saved.value : { ...catalog.voice, threshold: catalog.threshold, minSpeechMs: catalog.minSpeechMs }
+        const values = saved?.status === 'ready' && saved.value !== undefined ? saved.value : { asrProvider: catalog.asrProvider, ttsProvider: catalog.ttsProvider, deepseekSpeaker: catalog.deepseekSpeaker, ...catalog.voice, threshold: catalog.threshold, minSpeechMs: catalog.minSpeechMs }
         this.state.update((state) => {
+          state.credentials = credentials
+          state.credentialDraft = {}
           state.catalog = catalog
           state.draft = { ...values, volume: gain(this.dependencies.volume.getSnapshot().volume) }
           state.writable = saved?.status === 'ready' && saved.writable
         })
       } catch (_error) { if (!signal.aborted) this.state.update((state) => { state.failure = 'loadError' }) }
     })())
+  }
+
+  /** Keep a new secret only until Apply, Cancel, or disposal; saved values are never read. */
+  editCredential(key: 'apiKey' | 'appId' | 'accessToken', value: string): void {
+    if (this.state.getSnapshot().busy) return
+    this.state.update(state => { state.credentialDraft ??= {}; state.credentialDraft[key] = value })
   }
 
   /**
@@ -155,8 +178,8 @@ export class VoiceSettingsController {
         const started = await this.untilAborted(starting, signal)
         resume = started[1]
         signal.throwIfAborted()
-        stream = this.dependencies.remote.synthesize({ text: state.example.trim(), voice }, signal)
-        for await (const chunk of stream) { signal.throwIfAborted(); audio.append(chunk.audio, sampleRate) }
+        stream = this.dependencies.remote.synthesize({ text: state.example.trim(), voice, deepseekSpeaker: state.draft?.deepseekSpeaker }, signal)
+        for await (const chunk of stream) { signal.throwIfAborted(); audio.append(chunk.audio, chunk.sampleRate ?? sampleRate) }
         await audio.drain()
       } catch (_error) { if (!signal.aborted) this.state.update((next) => { next.failure = 'previewError' }) }
       finally {
@@ -196,15 +219,28 @@ export class VoiceSettingsController {
     try {
       await this.stop()
       this.lifetime.signal.throwIfAborted()
-      const fields = ['speaker', 'speechRate', 'pitch', 'style', 'threshold', 'minSpeechMs'] as const
-      const accepted = await form.mutate(fields.map(field => this.resetFields
-        ? { op: 'unset' as const, path: [field] }
-        : { op: 'set' as const, path: [field], value: draft[field] }), this.revision)
+      if (current.credentialDraft && current.credentials && this.dependencies.credentials) {
+        for (const key of ['apiKey', 'appId', 'accessToken'] as const) {
+          const value = current.credentialDraft[key]?.trim()
+          if (!value) continue
+          const info = current.credentials[key]
+          if (!info.writable) throw new Error('Speech credential is read-only')
+          await this.dependencies.credentials.set(info.ref, value)
+          this.state.update(state => {
+            if (state.credentials) state.credentials[key].configured = true
+            if (state.credentialDraft) delete state.credentialDraft[key]
+          })
+        }
+      }
+      const fields = ['speaker', 'speechRate', 'pitch', 'style', 'threshold', 'minSpeechMs', 'asrProvider', 'ttsProvider', 'deepseekSpeaker'] as const
+      const accepted = await form.mutate(fields.flatMap<{ op: 'unset'; path: string[] } | { op: 'set'; path: string[]; value: string | number }>(field => this.resetFields
+        ? [{ op: 'unset' as const, path: [field] }]
+        : draft[field] === undefined ? [] : [{ op: 'set' as const, path: [field], value: draft[field] }]), this.revision)
       if (this.lifetime.signal.aborted) return
       if (!accepted) throw new Error('Voice preferences were refused')
       this.dependencies.volume.set({ volume: gain(draft.volume) })
       this.panel.abort()
-      this.state.update((state) => { state.open = false })
+      this.state.update((state) => { state.open = false; state.credentialDraft = {} })
     } catch (_error) { if (!this.lifetime.signal.aborted) this.state.update((state) => { state.failure = 'saveError' }) }
     finally { if (!this.lifetime.signal.aborted) this.state.update((state) => { state.busy = false }) }
   }
@@ -213,7 +249,7 @@ export class VoiceSettingsController {
   close(): void {
     if (this.state.getSnapshot().busy) return
     this.panel.abort()
-    this.state.update((state) => { state.open = false })
+    this.state.update((state) => { state.open = false; state.credentialDraft = {} })
     void this.track(this.stop())
   }
 
@@ -245,6 +281,7 @@ export class VoiceSettingsController {
   dispose(): Promise<void> {
     this.disposal ??= (async () => {
       this.lifetime.abort(); this.panel.abort()
+      this.state.update(state => { state.credentialDraft = {} })
       await this.stop(); await Promise.allSettled([...this.tasks])
     })()
     return this.disposal

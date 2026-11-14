@@ -1,0 +1,24 @@
+.section { display: flex; flex-direction: column; gap: 20px; max-width: 720px; min-width: 0; color: var(--dsw-alias-label-primary); }
+.header { display: flex; flex-direction: column; gap: 8px; }
+.title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.hint { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 13px; line-height: 20px; }
+.label { font-weight: 500; }
+.field textarea, .previewMode select { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px 10px; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1); color: inherit; font: inherit; }
+.field textarea { resize: vertical; min-height: 120px; line-height: 22px; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.buttons { display: flex; flex: none; gap: 8px; }
+.feedback { min-height: 18px; margin-top: -12px; }
+.error { margin: 0; color: var(--dsw-alias-state-error-primary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.preview { border-top: 0.5px solid var(--dsw-alias-border-l2); padding-top: 16px; font-size: 13px; line-height: 20px; }
+.preview summary { cursor: pointer; }
+.previewContent { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }
+.previewMode { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.previewMode select { width: auto; max-width: 100%; }
+.rules { margin: 0; padding: 12px; background: var(--dsw-alias-bg-layer-1); border-radius: var(--dsw-radius-md); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.loading { display: flex; justify-content: center; padding: 40px 0; color: var(--dsw-alias-label-secondary); }
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 480px) { .actions { align-items: flex-start; flex-direction: column; } .buttons { align-self: flex-end; } }
+@media (pointer: coarse) { .field textarea, .previewMode select { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

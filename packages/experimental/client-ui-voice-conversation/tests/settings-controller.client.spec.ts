@@ -10,7 +10,7 @@ import type { CallAudio } from '../src/client/audio.ts'
 import type { SpeechRemote } from '../src/client/call.ts'
 
 const initial: VoiceSettingsValues = { speaker: 'voice', speechRate: 0, pitch: 0, style: 'natural', threshold: 0.012, minSpeechMs: 200 }
-function fixture() {
+function fixture(credentials?: import('../src/client/settings-controller.ts').VoiceSettingsDependencies['credentials']) {
   const snapshot = createSnapshotStore<ConfigFormSnapshot<VoiceSettingsValues>>({ status: 'ready', value: initial,
     base: initial, user: {}, revision: 1, writable: true })
   const mutate = vi.fn<ConfigForm<VoiceSettingsValues>['mutate']>(async (ops) => {
@@ -33,7 +33,7 @@ function fixture() {
   const resume = vi.fn(async () => {}), pauseCalls = vi.fn<() => Promise<() => Promise<void>>>(async () => resume)
   const ensure = vi.fn(async () => {})
   const volume = createSnapshotStore({ volume: 0.8 })
-  const controller = new VoiceSettingsController({ remote, form: () => form, ensure, inherited: () => initial,
+  const controller = new VoiceSettingsController({ remote, credentials, form: () => form, ensure, inherited: () => initial,
     volume, audio: () => audio, pauseCalls })
   return { controller, snapshot, form, mutate, catalog, remote, synthesize, audio,
     activate, capture, dispose, volume, resume, pauseCalls, ensure }
@@ -132,4 +132,28 @@ it('contains activation failure while pause is pending and restores the call onc
   paused.resolve(b.resume)
   await closing
   expect(b.resume).toHaveBeenCalledOnce(); expect(b.synthesize).not.toHaveBeenCalled()
+})
+
+it('stores new credentials only on Apply and never sends them into profile settings', async () => {
+  const set = vi.fn(async () => {}), describe = vi.fn(async (refs: string[]) => Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])))
+  const b = fixture({ set, describe })
+  b.catalog.credentialRefs = { apiKey: 'CUSTOM_SPEECH_KEY', appId: 'SPEECH_APP_ID', accessToken: 'SPEECH_ACCESS_TOKEN' }
+  await opened(b)
+  expect(b.controller.state.getSnapshot().credentialDraft).toEqual({})
+  b.controller.editCredential('apiKey', 'new-test-credential')
+  expect(set).not.toHaveBeenCalled()
+  await b.controller.apply()
+  expect(set).toHaveBeenCalledWith('CUSTOM_SPEECH_KEY', 'new-test-credential')
+  expect(JSON.stringify(b.mutate.mock.calls)).not.toContain('new-test-credential')
+  expect(b.controller.state.getSnapshot().credentialDraft).toEqual({})
+  await b.controller.dispose()
+})
+it('discards credential drafts on Cancel without writing or persisting them', async () => {
+  const set = vi.fn(async () => {}), b = fixture({ set, describe: async () => ({}) })
+  await opened(b)
+  b.controller.editCredential('accessToken', 'discard-test-token')
+  b.controller.close()
+  expect(set).not.toHaveBeenCalled()
+  expect(b.controller.state.getSnapshot().credentialDraft).toEqual({})
+  await b.controller.dispose()
 })

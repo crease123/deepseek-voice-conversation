@@ -5,12 +5,13 @@ import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/t
 import { VoiceOutput } from '../src/client/output.ts'
 
 const receipt = 'voice-receipt' as SessionRequestId
+type InputSource = { kind: 'user'; rpcId: SessionRequestId } | { kind: 'schedule' }
 function row(type: string, data: object): SessionEventLikeEntry {
   return { type: type === 'assistant/live-chunk' ? 'transient' : 'event', event: { type, data, time: 0, seq: 1 } } as SessionEventLikeEntry
 }
-function start(output: VoiceOutput): void {
-  output.expect(receipt)
-  output.accept([row('turn/start', { turn: 1 }), row('user/message', { source: { kind: 'user', rpcId: receipt } })])
+function start(output: VoiceOutput, source: InputSource = { kind: 'user', rpcId: receipt }, content: object[] = []): void {
+  if (source.kind === 'user') output.expect(receipt)
+  output.accept([row('turn/start', { turn: 1 }), row('user/message', { source, content })])
 }
 function delta(text: string, chunkType = 'text-delta', turn = 1, step = 1): SessionEventLikeEntry {
   return row('assistant/live-chunk', { turn, step, chunk: { type: chunkType, text, index: 0 } })
@@ -47,9 +48,43 @@ it('stops reading after another user takes over the Session or after a replaceme
   start(output); output.reset(); output.accept([delta('回放！')]); expect(speak).not.toHaveBeenCalled()
 })
 
+it.each(['[SCHEDULE REMINDER]', '[SCHEDULE REMINDER BATCH]'])('speaks assistant output for a delivered scheduled reminder (%s)', (prefix) => {
+  const speak = vi.fn(), output = new VoiceOutput(100, speak, vi.fn())
+  start(output, { kind: 'schedule' }, [{ type: 'text', text: `${prefix}\nThis is a scheduled message from the user` }])
+  output.accept([delta('定时任务已完成。'), settlement('定时任务已完成。')])
+  expect(speak).toHaveBeenCalledWith('定时任务已完成。')
+})
+
+it('does not speak task-change notifications that share the schedule source', () => {
+  const speak = vi.fn(), output = new VoiceOutput(100, speak, vi.fn())
+  start(output, { kind: 'schedule' }, [{ type: 'text', text: '[SCHEDULE CHANGE]\nThis notice is not a delivery of the task.' }])
+  output.accept([delta('任务配置已更新。'), settlement('任务配置已更新。')])
+  expect(speak).not.toHaveBeenCalled()
+})
+
 it('keeps tool steps out and handles failure finish without reading a partial suffix', () => {
   const speak = vi.fn(), stop = vi.fn(), output = new VoiceOutput(100, speak, stop)
   start(output); output.accept([delta('执行前'), row('tool/result', { text: '工具结果' }),
     row('assistant/live-chunk', { turn: 1, step: 1, chunk: { type: 'finish', reason: { kind: 'aborted' } } })])
   expect(speak).not.toHaveBeenCalled(); expect(stop).toHaveBeenCalledOnce()
+})
+
+it('does not synthesize symbol-only fragments from streamed Markdown and repeated punctuation', () => {
+  const speak = vi.fn(), output = new VoiceOutput(100, speak, vi.fn())
+  start(output)
+  output.accept([delta('你好！'), delta('！\n\n**河北怎么样？'), delta('**\n我觉得不错。**')])
+  output.accept([settlement('你好！！\n\n**河北怎么样？**\n我觉得不错。**')])
+  expect(speak.mock.calls).toMatchInlineSnapshot(`
+    [
+      [
+        "你好！",
+      ],
+      [
+        "**河北怎么样？",
+      ],
+      [
+        "我觉得不错。",
+      ],
+    ]
+  `)
 })

@@ -1,9 +1,9 @@
-/** Live-only assistant text admission; history replacement never triggers playback. */
+/** Live-only Assistant text admission; history replacement never triggers playback. */
 import type { SessionEventLikeEntry } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
 import { SpeechSentences } from './utterance.ts'
 
-/** Admit only text from turns started by this call's identified voice submissions. */
+/** Admit text from this call's submissions and delivered Host reminders. */
 export class VoiceOutput {
   private readonly requests = new Set<SessionRequestId>()
   private turn = 0
@@ -36,11 +36,21 @@ export class VoiceOutput {
   accept(entries: readonly SessionEventLikeEntry[]): void {
     for (const { event } of entries) {
       if (event.type === 'turn/start') { this.turn = event.data.turn; continue }
-      if (event.type === 'user/message' && event.data.source.kind === 'user') {
+      if (event.type === 'user/message') {
         const source = event.data.source
-        if ('rpcId' in source && typeof source.rpcId === 'string' && this.requests.has(source.rpcId)) {
-          this.requests.delete(source.rpcId); this.ownedTurn = this.turn
-        } else { this.ownedTurn = undefined }
+        // The optional Schedule package extends MessageSourceMap outside this Client package.
+        if (String(source.kind) === 'schedule') {
+          const text = event.data.content.filter(block => block.type === 'text').map(block => block.text).join('')
+          this.ownedTurn = text.startsWith('[SCHEDULE REMINDER]') || text.startsWith('[SCHEDULE REMINDER BATCH]')
+            ? this.turn
+            : undefined
+        } else if (source.kind === 'user') {
+          if ('rpcId' in source && typeof source.rpcId === 'string' && this.requests.has(source.rpcId)) {
+            this.requests.delete(source.rpcId); this.ownedTurn = this.turn
+          } else { this.ownedTurn = undefined }
+        } else {
+          this.ownedTurn = undefined
+        }
         continue
       }
       if (event.type === 'assistant/live-chunk' && event.data.turn === this.ownedTurn) {

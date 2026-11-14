@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Conversación por voz con Doubao",
+    "title": "Speech services",
     "description": "Reconoce el habla y reproduce respuestas con voces configurables de Doubao."
   }
 }

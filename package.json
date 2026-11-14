@@ -1,12 +1,12 @@
 {
-  "name": "deepseek-voice-conversation",
-  "private": true,
-  "version": "0.1.0",
-  "description": "Standalone DeepSeek Harness voice conversation plugins",
+  "name": "dsh-voice-call",
+  "version": "0.3.0",
+  "description": "Voice call for DeepSeek Harness with DeepSeek or Doubao speech, microphone response, and configurable credentials",
   "type": "module",
   "packageManager": "pnpm@11.28.5",
   "engines": {
-    "node": ">=24.9.0"
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
   },
   "workspaces": [
     "packages/experimental/*"
@@ -15,14 +15,45 @@
     "format-check": "git diff --check",
     "generate:remote": "node scripts/generate-remote.mjs",
     "list": "pnpm -r list --depth -1",
-    "build": "pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-speech-doubao/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-speech-doubao bundle && pnpm run generate:remote && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/client-ui-voice-conversation/tsconfig.json && pnpm --filter @deepseek-ai/dsh-client-ui-voice-conversation bundle && pnpm exec tsc --noEmit false --rewriteRelativeImportExtensions -p packages/experimental/voice-conversation-bundle/tsconfig.json && pnpm --filter @deepseek-ai/dsh-voice-conversation-bundle bundle",
-    "dev:watch": "node scripts/dev-watch.mjs"
+    "test:voice-output": "vitest run packages/experimental/client-ui-voice-conversation/tests/output.client.spec.ts",
+    "build": "node scripts/build.mjs",
+    "dev:watch": "node scripts/dev-watch.mjs",
+    "pack:release": "node scripts/pack-release.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",
     "tsdown": "^0.22.2",
-    "typescript": "^6.0.3"
-  }
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "main": "packages/experimental/voice-conversation-bundle/lib/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./packages/experimental/voice-conversation-bundle/cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-voice-speech-doubao": "workspace:*",
+    "@deepseek-ai/dsh-personal-agent": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-voice-conversation": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crease123/deepseek-voice-conversation.git"
+  },
+  "homepage": "https://github.com/crease123/deepseek-voice-conversation",
+  "license": "MIT",
+  "author": "lw (https://github.com/crease123)",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek",
+    "voice",
+    "asr",
+    "tts"
+  ]
 }

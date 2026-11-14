@@ -1,5 +1,7 @@
 - insert:
     - id: voice-speech-doubao
       name: '@deepseek-ai/dsh-voice-speech-doubao'
+    - id: personal-agent
+      name: '@deepseek-ai/dsh-personal-agent'
     - id: client-ui-voice-conversation
       name: '@deepseek-ai/dsh-client-ui-voice-conversation'

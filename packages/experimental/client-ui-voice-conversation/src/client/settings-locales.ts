@@ -5,8 +5,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 export const SETTINGS_NS = 'voice-conversation.settings'
 /** English settings copy and key source. */
 export const settingsEn = {
+  doubaoCredentials: 'Doubao credentials', apiKey: 'API key', appId: 'App ID (legacy console)', accessToken: 'Access token (legacy console)', configured: 'Configured', notConfigured: 'Not configured', keepCredential: 'Leave empty to keep the saved value', enterCredential: 'Enter your credential', credentialHint: 'Use an API key, or both App ID and Access token for the legacy console. API key takes priority. Apply saves to the Host credential store; saved secrets are never displayed. Enable ASR/TTS resources in Volcengine. Restore defaults does not remove credentials.', credentialsUnavailable: 'Credential controls are unavailable. Reopen settings after updating the Host.',
+  asrProvider: 'Speech recognition', ttsProvider: 'Speech synthesis', doubao: 'Doubao', providerHint: 'DeepSeek uses your Harness DeepSeek API key. Enter your own Doubao credentials below. Apply provider changes before previewing; restart active calls.',
   rms: 'RMS', milliseconds: 'ms',
-  title: 'Voice conversation', open: 'Voice settings', description: 'Choose how the agent sounds and when speech interrupts it.',
+  title: 'Voice call', open: 'Voice settings', description: 'Choose how the agent sounds and when speech interrupts it.',
   speaker: 'Voice', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Clear, warm female voice', vivi: 'Vivi 2.0', viviDescription: 'Bright, expressive female voice',
   yunzhou: 'Yunzhou 2.0', yunzhouDescription: 'Steady, relaxed male voice', xiaotian: 'Xiaotian 2.0', xiaotianDescription: 'Clear, youthful male voice', customDescription: 'Custom voice configured by your speech service',
   speechRate: 'Speech rate', volume: 'Playback volume', volumeHint: 'Saved in this client only. This does not change system volume.',
@@ -18,11 +20,13 @@ export const settingsEn = {
   defaults: 'Restore defaults', cancel: 'Cancel', apply: 'Apply', applying: 'Applying…', close: 'Close voice settings',
   loading: 'Loading voice settings…', loadError: 'Voice settings could not be loaded. Close and reopen to retry.',
   previewError: 'The preview failed. Check the speech service and audio output, then retry.',
-  saveError: 'Settings were not saved. Reopen the panel to load current values and try again.',
+  saveError: 'Some changes could not be saved. Credentials already accepted by the Host remain saved. Reopen settings to check and retry.',
   readonly: 'Voice preferences are read-only in this profile.', changed: 'Changes apply to the next spoken sentence.',
 } as const
 /** Chinese settings copy checked against the English keys. */
 export const settingsZh = {
+  doubaoCredentials: '豆包 API 配置', apiKey: 'API Key', appId: 'App ID（旧控制台）', accessToken: 'Access Token（旧控制台）', configured: '已配置', notConfigured: '未配置', keepCredential: '留空保留已保存的凭据', enterCredential: '填写你自己的凭据', credentialHint: '填写 API Key，或旧控制台的 App ID 与 Access Token。API Key 优先。点击应用后保存到宿主凭据库，已保存的密钥不会回显。请在火山引擎开通对应 ASR/TTS 资源。恢复默认不会删除凭据。', credentialsUnavailable: '凭据设置暂不可用，请更新宿主后重新打开设置。',
+  asrProvider: '语音识别服务', ttsProvider: '语音合成服务', doubao: '豆包（火山引擎）', providerHint: 'DeepSeek 复用 Harness 的 DeepSeek API Key；豆包可在下方填写自己的 API 凭据。更换厂商后请先应用再试听，并重新开始通话。',
   rms: 'RMS', milliseconds: '毫秒',
   title: '语音通话', open: '语音设置', description: '选择 Agent 的声音，以及说话触发打断的条件',
   speaker: '音色', xiaohe: '小何 2.0', xiaoheDescription: '清晰温暖的女声', vivi: 'Vivi 2.0', viviDescription: '明亮富有表现力的女声',
@@ -36,11 +40,13 @@ export const settingsZh = {
   defaults: '恢复默认', cancel: '取消', apply: '应用', applying: '正在应用…', close: '关闭语音设置',
   loading: '正在加载语音设置…', loadError: '无法加载语音设置，请关闭后重新打开重试',
   previewError: '试听失败，请检查语音服务和音频输出后重试',
-  saveError: '设置未保存，请重新打开面板加载当前值后重试', readonly: '当前配置中的语音参数为只读', changed: '更改从下一段播报开始生效',
+  saveError: '部分设置未保存；已被宿主接受的凭据会保留，请重新打开检查后重试', readonly: '当前配置中的语音参数为只读', changed: '更改从下一段播报开始生效',
 } satisfies Record<keyof typeof settingsEn, string>
 
 /** Japanese voice preferences and preview controls. */
 export const settingsJa = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'ミリ秒',
   title: '音声通話', open: '音声設定', description: 'エージェントの声と、発話で応答を中断する条件を設定します。',
   speaker: '声', xiaohe: 'Xiaohe 2.0', xiaoheDescription: '明瞭で温かい女性の声', vivi: 'Vivi 2.0', viviDescription: '明るく表情豊かな女性の声',
@@ -60,6 +66,8 @@ export const settingsJa = {
 
 /** Spanish voice preferences and preview controls. */
 export const settingsEs = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'ms',
   title: 'Conversación de voz', open: 'Ajustes de voz', description: 'Elige la voz del agente y cuándo el habla interrumpe su respuesta.',
   speaker: 'Voz', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Voz femenina clara y cálida', vivi: 'Vivi 2.0', viviDescription: 'Voz femenina alegre y expresiva',
@@ -79,6 +87,8 @@ export const settingsEs = {
 
 /** French voice preferences and preview controls. */
 export const settingsFr = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'ms',
   title: 'Conversation vocale', open: 'Paramètres vocaux', description: 'Choisissez la voix de l’agent et les conditions d’interruption par la parole.',
   speaker: 'Voix', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Voix féminine claire et chaleureuse', vivi: 'Vivi 2.0', viviDescription: 'Voix féminine vive et expressive',
@@ -98,6 +108,8 @@ export const settingsFr = {
 
 /** German voice preferences and preview controls. */
 export const settingsDe = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'ms',
   title: 'Sprachgespräch', open: 'Spracheinstellungen', description: 'Wählen Sie die Stimme des Agenten und wann Sprache seine Antwort unterbricht.',
   speaker: 'Stimme', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Klare, warme weibliche Stimme', vivi: 'Vivi 2.0', viviDescription: 'Helle, ausdrucksstarke weibliche Stimme',
@@ -117,6 +129,8 @@ export const settingsDe = {
 
 /** Russian voice preferences and preview controls. */
 export const settingsRu = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'мс',
   title: 'Голосовой разговор', open: 'Настройки голоса', description: 'Выберите голос агента и условия прерывания ответа речью.',
   speaker: 'Голос', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Чёткий и тёплый женский голос', vivi: 'Vivi 2.0', viviDescription: 'Яркий и выразительный женский голос',
@@ -136,6 +150,8 @@ export const settingsRu = {
 
 /** Portuguese voice preferences and preview controls. */
 export const settingsPt = {
+  doubaoCredentials: settingsEn.doubaoCredentials, apiKey: settingsEn.apiKey, appId: settingsEn.appId, accessToken: settingsEn.accessToken, configured: settingsEn.configured, notConfigured: settingsEn.notConfigured, keepCredential: settingsEn.keepCredential, enterCredential: settingsEn.enterCredential, credentialHint: settingsEn.credentialHint, credentialsUnavailable: settingsEn.credentialsUnavailable,
+  asrProvider: settingsEn.asrProvider, ttsProvider: settingsEn.ttsProvider, doubao: settingsEn.doubao, providerHint: settingsEn.providerHint,
   rms: 'RMS', milliseconds: 'ms',
   title: 'Conversa por voz', open: 'Configurações de voz', description: 'Escolha a voz do agente e quando a fala interrompe a resposta.',
   speaker: 'Voz', xiaohe: 'Xiaohe 2.0', xiaoheDescription: 'Voz feminina clara e acolhedora', vivi: 'Vivi 2.0', viviDescription: 'Voz feminina alegre e expressiva',

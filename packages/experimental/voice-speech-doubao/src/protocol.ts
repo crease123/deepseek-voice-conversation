@@ -11,7 +11,7 @@ import { voiceInstruction } from './preferences.ts'
 export class SpeechProviderFailure extends Error {
   /** @param reason - stable upstream failure category without response or credential contents. */
   constructor(readonly reason: 'network' | 'protocol' | 'rejected') {
-    super(`Doubao speech ${reason} failure`)
+    super(`Speech service ${reason} failure`)
   }
 }
 

@@ -1,5 +1,5 @@
 ---
-description: "Configure Doubao speech recognition and streaming spoken replies for voice conversations."
+description: "Configure DeepSeek and Doubao speech recognition and streaming spoken replies for voice conversations."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Transcribe recorded speech and hear generated text through Doubao. Use this optional package with the voice conversation bundle for hands-free conversations with the existing Agent. Speech credentials stay on the Host, and audio is transient. Recognition and synthesis use the configured Doubao resources and incur their provider charges.
+Transcribe recorded speech and hear generated text through DeepSeek by default, with optional Doubao support. Use this optional package with the voice conversation bundle for hands-free conversations with the existing Agent. Speech credentials stay on the Host, and audio is transient. Recognition and synthesis use the selected provider resources and incur their provider charges.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Transcribe recorded speech and hear generated text through Doubao. Use this opti
 
 The [voice conversation bundle](../voice-conversation-bundle/README.md) composes this package with its browser controls; custom compositions mount it alongside Credentials and Typert.
 
-Open Settings → General → Voice conversation to choose a voice, speech rate, and detection sensitivity; pitch and delivery are under More options. Preview uses the current draft without saving or creating a Session message. Apply saves voice and detection preferences through the current Host profile’s writable configuration. Playback volume is stored separately in the Client. Follow the bundle’s [source profile setup](../voice-conversation-bundle/README.md#source-checkout) to keep these writes effective.
+Open Settings → Voice conversation to choose a voice, speech rate, and detection sensitivity; pitch and delivery are under More options. Preview uses the current draft without saving or creating a Session message. Apply saves voice and detection preferences through the current Host profile’s writable configuration. Playback volume is stored separately in the Client. Follow the bundle’s [source profile setup](../voice-conversation-bundle/README.md#source-checkout) to keep these writes effective.
 
 ```yaml
 - id: voice-speech-doubao
@@ -59,7 +59,7 @@ The voice choices include Xiaohe 2.0, Vivi 2.0, Yunzhou 2.0, and Xiaotian 2.0. A
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The authenticated `voiceSpeech` Remote accepts a complete canonical 16 kHz mono PCM16 WAV and sends gzip-framed audio to Doubao's final-result ASR endpoint. It returns recognized text without activating an Agent. The Client submits that text through ordinary Session messaging, so Session access and tool permissions retain their existing owners.
+The authenticated `voiceSpeech` Remote accepts a complete canonical 16 kHz mono PCM16 WAV and sends it to the selected ASR endpoint (multipart WAV for DeepSeek, gzip-framed audio for Doubao). It returns recognized text without activating an Agent. The Client submits that text through ordinary Session messaging, so Session access and tool permissions retain their existing owners.
 
 Synthesis sends each requested sentence to the unidirectional SSE endpoint and returns bounded base64 PCM16 little-endian mono chunks. It rejects malformed frames and requires explicit provider completion; a failure after output leaves partial audio and remains visible to the caller. Each operation resolves current credentials, applies its deadline, and owns its upstream transport. Caller cancellation and plugin disposal abort accepted operations and await transport cleanup.
 
@@ -112,3 +112,11 @@ DSH_VOICE_REAL_API=1 node_modules/.bin/vitest run --config vitest.e2e.config.ts 
 Set `SPEECH_ASR_RESOURCE_ID`, `SPEECH_TTS_RESOURCE_ID`, or `SPEECH_TTS_SPEAKER` when the account uses different resources or a different voice. This test makes paid provider requests; local protocol tests do not verify account access.
 
 </details>
+
+### Speech providers and call view
+
+ASR and TTS default to DeepSeek and reuse the Host credential reference `DEEPSEEK_API_KEY`. No separate Volcengine credentials are needed for DeepSeek. Voice settings select ASR and TTS independently between DeepSeek and Doubao. DeepSeek offers Stella and Tide at 24 kHz; rate, pitch, and delivery controls apply to Doubao only. Apply provider changes before previewing and restart active calls. Doubao retains its existing `SPEECH_API_KEY` or application/token configuration. Provider endpoints and credential references remain configurable on the Host; secrets never enter browser preferences.
+
+DeepSeek ASR uploads each completed WAV utterance; TTS uses WebSocket PCM with explicit completion checks. The call view hides the text editor while preserving the draft, shows five compact monochrome bars responding to microphone RMS, and retains status, warnings, and hangup. Reduced-motion preferences disable visual motion.
+
+Doubao credentials can be entered directly in Voice call settings: API key, or legacy App ID and Access token. Apply writes secrets to the Host credential store; blank inputs retain saved values, Cancel clears drafts, and saved values are never returned or stored in profile patches. Environment-supplied credentials may be read-only. Credentials are saved before ordinary preferences; if a later write fails, already accepted credentials remain saved.

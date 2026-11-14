@@ -33,6 +33,15 @@
       ],
       "@deepseek-ai/dsh-voice-speech-doubao/types": [
         "packages/experimental/voice-speech-doubao/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-personal-agent": [
+        "packages/experimental/personal-agent/src/index.ts"
+      ],
+      "@deepseek-ai/dsh-personal-agent/*": [
+        "packages/experimental/personal-agent/src/*"
+      ],
+      "@deepseek-ai/dsh-personal-agent/types": [
+        "packages/experimental/personal-agent/lib/types/types.d.ts"
       ]
     },
     "ignoreDeprecations": "6.0"

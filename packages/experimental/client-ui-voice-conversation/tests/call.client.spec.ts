@@ -4,11 +4,11 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createScope, MutableSessionEventSource, type SessionBinding, type SessionSnapshot, type SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
 import { SessionSeq, type SessionId, type SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
+import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { VoiceTranscript, VoiceAudioChunk } from '@deepseek-ai/dsh-voice-speech-doubao/types'
 import { RemoteError, type RemoteResult, type RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
 import { describe, expect, it, vi } from 'vitest'
-import { VoiceCall, type CallState, type SpeechRemote } from '../src/client/call.ts'
+import { VoiceCall, type CallState, type SpeechRemote, type PersonalCallRemote } from '../src/client/call.ts'
 import type { CallAudio } from '../src/client/audio.ts'
 import { VoiceSettingsController } from '../src/client/settings-controller.ts'
 
@@ -38,12 +38,25 @@ function fixture() {
       loadOlder: async () => {}, loadThrough: async () => {}, command: async () => ({ ok: true, value: { matched: false } }),
     } }
   const transcribe = vi.fn<SpeechRemote['transcribe']>(async () => ({ ok: true, value: { text: '你好' } }))
-  const synthesize = vi.fn((): RemoteStreamHandle<VoiceAudioChunk, never> => ({
+  const synthesize = vi.fn<SpeechRemote['synthesize']>((): RemoteStreamHandle<VoiceAudioChunk, never> => ({
     async *[Symbol.asyncIterator]() { yield { audio: 'AAA=' } }, send: vi.fn(), end: vi.fn(), dispose: vi.fn(),
   }))
   const remote: SpeechRemote = { catalog: vi.fn(async () => ({ ok: true, value: { voice: { speaker: 'voice', speechRate: 0, pitch: 0, style: 'natural' }, voices: [{ speaker: 'voice', name: 'Voice', styles: ['natural'] }], sampleRate: 24000,
     minSpeechMs: 0, silenceMs: 10, maxUtteranceMs: 1000, threshold: 0.1, maxTextLength: 100 } })), transcribe, synthesize }
-  const call = new VoiceCall(binding, remote, audio, publish, release)
+  const contextClosed = vi.fn(), contextReady = Promise.withResolvers<void>()
+  contextReady.resolve()
+  const registerCall = vi.fn<PersonalCallRemote['call']>((_sessionId, signal) => ({
+    async *[Symbol.asyncIterator]() {
+      await contextReady.promise
+      signal?.throwIfAborted()
+      yield { active: true }
+      await new Promise<void>(resolve => {
+        if (signal?.aborted) resolve()
+        else signal?.addEventListener('abort', () => { resolve() }, { once: true })
+      })
+    }, send: vi.fn(), end: vi.fn(), dispose: contextClosed,
+  }))
+  const call = new VoiceCall(binding, remote, { call: registerCall }, audio, publish, release)
   const voice = (): void => { capture(new Float32Array(160).fill(0.5)) }
   const silence = (): void => { capture(new Float32Array(160)) }
   const running = (value: boolean): void => { status.set({ ...status.getSnapshot(), running: value }) }
@@ -53,16 +66,72 @@ function fixture() {
   }
   const turnStart = (): void => { eventSource.append({ type: 'event', event: { type: 'turn/start', seq: SessionSeq(++seq), time: 0, data: { turn: 1 } } }) }
   const turnEnd = (): void => { eventSource.append({ type: 'event', event: { type: 'turn/end', seq: SessionSeq(++seq), time: 0, data: { turn: 1, reason: { kind: 'completed' } } } }) }
+  const answer = (text: string): void => {
+    spliced({ target: 'next-turn', start: 0, inserted: [voiceMessage] }); turnStart()
+    spliced({ target: 'next-turn', start: 0, removedCount: 1, inserted: [] })
+    eventSource.append({ type: 'event', event: { type: 'user/message', seq: SessionSeq(++seq), time: 0, data: voiceMessage } })
+    eventSource.append({ type: 'transient', event: { type: 'assistant/live-chunk', seq: ++seq, time: 0,
+      data: { turn: 1, step: 1, attemptId: 'voice-attempt' as LlmAttemptId, chunk: { type: 'text-delta', text, index: 0 } } } })
+  }
   return { call, audio, audioDispose, audioCapture, stopPlayback, remote, status, eventSource,
     prompt, cancel, updateQueue, transcribe, synthesize, publish, abandon, release, voice, silence, running,
-    spliced, turnStart, turnEnd, pause, audioResume,
-    interrupted: () => { interrupted() } }
+    spliced, turnStart, turnEnd, answer, pause, audioResume,
+    registerCall, contextClosed, interrupted: () => { interrupted() } }
 }
 
 const voiceMessage = { id: 'voice-message' as MessageId, role: 'user' as const,
   content: [{ type: 'text' as const, text: '你好' }], source: { kind: 'user' as const, rpcId: 'voice-receipt' as SessionRequestId } }
 
 describe('voice call admission', () => {
+  it('waits for the Host call registration before admitting microphone input', async () => {
+    const b = fixture(), acknowledged = Promise.withResolvers<void>()
+    b.registerCall.mockImplementationOnce((_id, signal) => ({
+      async *[Symbol.asyncIterator]() {
+        await acknowledged.promise
+        yield { active: true }
+        await new Promise<void>(resolve => { signal?.addEventListener('abort', () => { resolve() }, { once: true }) })
+      }, send: vi.fn(), end: vi.fn(), dispose: b.contextClosed,
+    }))
+    const starting = b.call.start()
+    await vi.waitFor(() => { expect(b.registerCall).toHaveBeenCalledOnce() })
+    expect(b.audioCapture).not.toHaveBeenCalled()
+    expect(b.prompt).not.toHaveBeenCalled()
+    acknowledged.resolve()
+    await starting
+    b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    await b.call.dispose()
+    expect(b.registerCall).toHaveBeenCalledWith(id, expect.any(AbortSignal))
+    expect(b.contextClosed).toHaveBeenCalledOnce()
+  })
+
+  it('ends the call before capture if the Host cannot register its communication state', async () => {
+    const b = fixture()
+    b.registerCall.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() { throw new Error('registration unavailable') },
+      send: vi.fn(), end: vi.fn(), dispose: b.contextClosed,
+    })
+    await b.call.start()
+    await vi.waitFor(() => { expect(b.release).toHaveBeenCalledOnce() })
+    expect(b.publish).toHaveBeenLastCalledWith({ phase: 'error', failure: 'connection' })
+    expect(b.audioCapture).not.toHaveBeenCalled()
+    expect(b.contextClosed).toHaveBeenCalledOnce()
+  })
+
+  it('stops capture when the Host call registration disconnects unexpectedly', async () => {
+    const b = fixture(), disconnected = Promise.withResolvers<void>()
+    b.registerCall.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() { yield { active: true }; await disconnected.promise },
+      send: vi.fn(), end: vi.fn(), dispose: b.contextClosed,
+    })
+    await b.call.start()
+    expect(b.audioCapture).toHaveBeenCalledOnce()
+    disconnected.resolve()
+    await vi.waitFor(() => { expect(b.release).toHaveBeenCalledOnce() })
+    expect(b.audioDispose).toHaveBeenCalledOnce()
+    expect(b.publish).toHaveBeenLastCalledWith({ phase: 'error', failure: 'connection' })
+  })
+
   it('submits a transcript through ordinary Session prompts and releases capture on hangup', async () => {
     const b = fixture()
     await b.call.start(); b.voice(); b.silence()
@@ -225,6 +294,63 @@ describe('voice call admission', () => {
     await b.call.dispose()
   })
 
+  it('pauses a background call without releasing its Session and resumes capture when visible', async () => {
+    const b = fixture(); await b.call.start()
+    await b.call.setBackgrounded(true)
+    await b.call.setBackgrounded(true)
+    expect(b.pause).toHaveBeenCalledOnce(); expect(b.publish).toHaveBeenLastCalledWith({ phase: 'paused' })
+    b.voice(); b.silence(); await Promise.resolve()
+    expect(b.transcribe).not.toHaveBeenCalled(); expect(b.audioDispose).not.toHaveBeenCalled(); expect(b.release).not.toHaveBeenCalled()
+    await b.call.setBackgrounded(false)
+    await b.call.setBackgrounded(false)
+    expect(b.audioResume).toHaveBeenCalledOnce()
+    b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    await b.call.dispose()
+  })
+
+  it.each(['preview', 'background'] as const)('waits for both pause leases before resuming (%s releases first)', async (first) => {
+    const b = fixture(); await b.call.start()
+    const resumePreview = await b.call.pauseForPreview()
+    await b.call.setBackgrounded(true)
+    expect(b.pause).toHaveBeenCalledOnce()
+    if (first === 'preview') await resumePreview()
+    else await b.call.setBackgrounded(false)
+    expect(b.audioResume).not.toHaveBeenCalled(); expect(b.publish).toHaveBeenLastCalledWith({ phase: 'paused' })
+    if (first === 'preview') await b.call.setBackgrounded(false)
+    else await resumePreview()
+    expect(b.audioResume).toHaveBeenCalledOnce(); expect(b.publish).toHaveBeenLastCalledWith({ phase: 'listening' })
+    await b.call.dispose()
+  })
+
+  it('serializes a visibility return behind an in-flight audio suspension', async () => {
+    const b = fixture(), suspended = Promise.withResolvers<void>()
+    await b.call.start()
+    b.pause.mockReturnValueOnce(suspended.promise)
+    const hiding = b.call.setBackgrounded(true)
+    await vi.waitFor(() => { expect(b.pause).toHaveBeenCalledOnce() })
+    const showing = b.call.setBackgrounded(false)
+    expect(b.audioResume).not.toHaveBeenCalled()
+    suspended.resolve()
+    await Promise.all([hiding, showing])
+    expect(b.audioResume).toHaveBeenCalledOnce(); expect(b.publish).toHaveBeenLastCalledWith({ phase: 'listening' })
+    expect(b.audioDispose).not.toHaveBeenCalled(); expect(b.release).not.toHaveBeenCalled()
+    await b.call.dispose()
+  })
+
+  it('applies an existing background pause after call audio activates', async () => {
+    const b = fixture()
+    await b.call.setBackgrounded(true)
+    await b.call.start()
+    expect(b.pause).toHaveBeenCalledOnce(); expect(b.publish).toHaveBeenLastCalledWith({ phase: 'paused' })
+    b.voice(); b.silence(); await Promise.resolve()
+    expect(b.transcribe).not.toHaveBeenCalled()
+    await b.call.setBackgrounded(false)
+    b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    await b.call.dispose()
+  })
+
   it('ends the call visibly when preview suspension or restoration fails', async () => {
     for (const operation of ['pause', 'resume'] as const) {
       const b = fixture(); await b.call.start()
@@ -262,8 +388,70 @@ describe('voice call admission', () => {
     await vi.waitFor(() => { expect(settings.state.getSnapshot().draft).toBeDefined() })
     settings.play()
     await vi.waitFor(() => { expect(b.pause).toHaveBeenCalledOnce() })
-    await Promise.all([settings.dispose(), b.call.dispose()])
-    expect(b.release).toHaveBeenCalledOnce(); expect(b.synthesize).not.toHaveBeenCalled()
+    const closing = Promise.all([settings.dispose(), b.call.dispose()])
+    await Promise.resolve()
+    expect(b.release).not.toHaveBeenCalled()
     suspended.resolve(undefined)
+    await closing
+    expect(b.release).toHaveBeenCalledOnce(); expect(b.synthesize).not.toHaveBeenCalled()
+  })
+})
+
+describe('voice call speech recovery', () => {
+  it.each([false, true])('skips a failed sentence and keeps later speech and microphone input alive (partial audio: %s)', async (partial) => {
+    const b = fixture(), disposeStream = vi.fn()
+    b.synthesize.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        if (partial) yield { audio: 'AAE=' }
+        throw new RemoteError('gateway/internal', 'synthesis rejected', {})
+      }, send: vi.fn(), end: vi.fn(), dispose: disposeStream,
+    })
+    await b.call.start(); b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    b.answer('第一句。第二句。')
+    await vi.waitFor(() => { expect(b.synthesize).toHaveBeenCalledTimes(2) })
+    expect(b.synthesize.mock.calls.map(([request]) => request.text)).toEqual(['第一句。', '第二句。'])
+    await vi.waitFor(() => { expect(b.publish).toHaveBeenLastCalledWith({ phase: 'listening', warning: 'synthesis' }) })
+    expect(b.audio.append).toHaveBeenCalledTimes(partial ? 2 : 1)
+    expect(b.stopPlayback).toHaveBeenCalledTimes(2)
+    expect(disposeStream).toHaveBeenCalledOnce()
+    expect(b.audioDispose).not.toHaveBeenCalled(); expect(b.release).not.toHaveBeenCalled()
+    b.turnEnd(); b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledTimes(2) })
+    expect(b.publish).toHaveBeenLastCalledWith({ phase: 'thinking' })
+    expect(b.audioCapture).toHaveBeenCalledOnce()
+    await b.call.dispose()
+  })
+
+  it.each(['append', 'drain'] as const)('stops the call with playback feedback when audio %s fails', async (operation) => {
+    const b = fixture()
+    if (operation === 'append') vi.mocked(b.audio.append).mockImplementationOnce(() => { throw new Error('audio output failed') })
+    else vi.mocked(b.audio.drain).mockRejectedValueOnce(new Error('audio output failed'))
+    await b.call.start(); b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    b.answer('第一句。第二句。')
+    await vi.waitFor(() => { expect(b.release).toHaveBeenCalledOnce() })
+    expect(b.publish).toHaveBeenLastCalledWith({ phase: 'error', failure: 'playback' })
+    expect(b.synthesize).toHaveBeenCalledOnce()
+  })
+
+  it('does not report a synthesis failure when speech onset aborts an active stream', async () => {
+    const b = fixture(), interrupted = Promise.withResolvers<void>(), disposeStream = vi.fn()
+    b.synthesize.mockImplementationOnce((_request, signal) => ({
+      async *[Symbol.asyncIterator]() {
+        yield { audio: 'AAA=' }
+        signal?.addEventListener('abort', () => { interrupted.reject(new DOMException('Interrupted', 'AbortError')) }, { once: true })
+        await interrupted.promise
+      }, send: vi.fn(), end: vi.fn(), dispose: disposeStream,
+    }))
+    await b.call.start(); b.voice(); b.silence()
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    b.answer('这句会被打断。')
+    await vi.waitFor(() => { expect(b.audio.append).toHaveBeenCalledOnce() })
+    b.turnEnd(); b.voice()
+    await vi.waitFor(() => { expect(disposeStream).toHaveBeenCalledOnce() })
+    expect(b.publish.mock.calls.some(([state]) => state.phase === 'error' || 'warning' in state)).toBe(false)
+    expect(b.audioDispose).not.toHaveBeenCalled()
+    await b.call.dispose()
   })
 })

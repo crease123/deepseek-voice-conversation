@@ -4,10 +4,11 @@ import type { VoiceSpeechCatalog } from '@deepseek-ai/dsh-voice-speech-doubao/ty
 /** ASR accepts mono PCM16 at this protocol-defined rate. */
 export const CAPTURE_RATE = 16000
 
-/** Detect speech starts and emit complete utterances without retaining idle silence. */
+/** Retain one second before speech onset and emit duration-bounded utterances. */
 export class UtteranceDetector {
   private chunks: Float32Array[] = []
   private samples = 0
+  private onsetSamples = 0
   private silence = 0
   private active = false
   private detection: Pick<VoiceSpeechCatalog, 'threshold' | 'minSpeechMs'>
@@ -22,7 +23,17 @@ export class UtteranceDetector {
   configure(detection: Pick<VoiceSpeechCatalog, 'threshold' | 'minSpeechMs'>): void { this.detection = detection }
 
   /** Discard partial microphone input when capture is suspended. */
-  reset(): void { this.chunks = []; this.samples = 0; this.silence = 0; this.active = false }
+  reset(): void { this.chunks = []; this.samples = 0; this.onsetSamples = 0; this.silence = 0; this.active = false }
+
+  private retainRecent(limit: number): void {
+    while (this.samples > limit) {
+      const first = this.chunks[0]!
+      const remove = Math.min(first.length, this.samples - limit)
+      if (remove === first.length) this.chunks.shift()
+      else this.chunks[0] = first.slice(remove)
+      this.samples -= remove
+    }
+  }
 
   /**
    * Consume one microphone frame and emit a bounded utterance when its recording ends.
@@ -33,11 +44,15 @@ export class UtteranceDetector {
     let power = 0
     for (const sample of frame) power += sample * sample
     const speech = Math.sqrt(power / frame.length) >= this.detection.threshold
-    if (!this.active && !speech) { this.reset(); return }
     this.chunks.push(frame.slice())
     this.samples += frame.length
     if (!this.active) {
-      if (this.samples * 1000 < this.detection.minSpeechMs * CAPTURE_RATE) return
+      this.onsetSamples = speech ? this.onsetSamples + frame.length : 0
+      // Short recording limits reserve room for onset confirmation and trailing silence.
+      const availableMs = Math.max(0, this.config.maxUtteranceMs - this.detection.minSpeechMs - this.config.silenceMs)
+      const preRollSamples = Math.min(CAPTURE_RATE, Math.floor(availableMs * CAPTURE_RATE / 1000))
+      this.retainRecent(preRollSamples + this.onsetSamples)
+      if (!speech || this.onsetSamples * 1000 < this.detection.minSpeechMs * CAPTURE_RATE) return
       this.active = true
       this.onStart()
     }
@@ -87,7 +102,7 @@ export function base64(bytes: Uint8Array): string {
   return btoa(text)
 }
 
-/** Retain only an unfinished sentence and split long sentences by Unicode code points. */
+/** Split bounded sentences by Unicode code points, omitting text without letters or numbers. */
 export class SpeechSentences {
   private pending = ''
   constructor(private readonly limit: number) {}
@@ -95,7 +110,7 @@ export class SpeechSentences {
   /**
    * Append text and release each complete sentence within the provider limit.
    * @param text - new assistant text delta.
-   * @returns complete bounded sentences.
+   * @returns complete bounded sentences containing readable text.
    */
   push(text: string): string[] {
     this.pending = (this.pending + text).trimStart()
@@ -110,17 +125,17 @@ export class SpeechSentences {
       if (size === 0) break
       const sentence = points.slice(0, size).join('').trim()
       this.pending = points.slice(size).join('').trimStart()
-      if (sentence) sentences.push(sentence)
+      if (/[\p{L}\p{N}]/u.test(sentence)) sentences.push(sentence)
     }
     return sentences
   }
 
   /**
    * Release the last incomplete sentence after a successful assistant settlement.
-   * @returns the remaining nonblank text.
+   * @returns the remaining text when it contains letters or numbers.
    */
   finish(): string[] {
     const text = this.pending.trim(); this.pending = ''
-    return text ? [text] : []
+    return /[\p{L}\p{N}]/u.test(text) ? [text] : []
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-voice-conversation",
   "description": "Optional continuous voice conversations using the current Session and its tools",
-  "version": "0.2.2-rc.1",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },
@@ -52,7 +52,9 @@
     "react-dom": "^18.2.0",
     "@testing-library/react": "^16.3.3",
     "@deepseek-ai/dsh-client-ui-settings": "^0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-layout": "^0.2.2-rc.1"
+    "@deepseek-ai/dsh-client-ui-layout": "^0.2.2-rc.1",
+    "@deepseek-ai/dsh-personal-agent": "workspace:*",
+    "@deepseek-ai/dsh-api-settings-controller": "^0.2.2-rc.1"
   },
   "dsh": {
     "client": {
@@ -72,5 +74,10 @@
   "scripts": {
     "bundle": "tsdown",
     "watch": "tsdown --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crease123/deepseek-voice-conversation.git",
+    "directory": "packages/experimental/client-ui-voice-conversation"
   }
 }

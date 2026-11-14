@@ -5,16 +5,19 @@ import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { VoiceSpeechCatalog } from '@deepseek-ai/dsh-voice-speech-doubao/types'
 import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-voice-speech-doubao/remote'
+import type {} from '@deepseek-ai/dsh-personal-agent/remote'
 import { type CallAudio, VoiceAudioError } from './audio.ts'
 import { base64, encodeUtterance, UtteranceDetector } from './utterance.ts'
 import { VoiceOutput } from './output.ts'
 
 /** Localized call feedback; raw Host diagnostics are not displayed. */
-export type CallFailure = 'unavailable' | 'permission' | 'microphone' | 'playback' | 'connection' | 'recognition' | 'synthesis' | 'submission' | 'cancellation' | 'backlog'
-/** A complete local call state. */
-export type CallState = { phase: 'idle' | 'connecting' | 'listening' | 'recognizing' | 'thinking' | 'speaking' | 'stopping' | 'paused' } | { phase: 'error'; failure: CallFailure }
+export type CallFailure = 'unavailable' | 'permission' | 'microphone' | 'playback' | 'connection' | 'recognition' | 'submission' | 'cancellation' | 'backlog'
+/** A complete local call state; a synthesis warning lasts until the next speech onset. */
+export type CallState = { phase: 'idle' | 'connecting' | 'listening' | 'recognizing' | 'thinking' | 'speaking' | 'stopping' | 'paused'; warning?: 'synthesis' } | { phase: 'error'; failure: CallFailure }
 /** Generated speech methods, shared by the mounted Client namespace. */
 export type SpeechRemote = TypertClientRemote['voiceSpeech']
+/** Host call registration; the stream owns the current Session's communication state. */
+export type PersonalCallRemote = Pick<TypertClientRemote['personalAgent'], 'call'>
 
 interface PendingVoiceInput {
   readonly requestId: SessionRequestId
@@ -44,10 +47,17 @@ export class VoiceCall {
   private disposeEvents = (): void => {}
   private disposeStatus = (): void => {}
   private disposal: Promise<void> | undefined
-  private paused = false
+  private readonly pauseLeases = new Set<symbol>()
+  private backgroundPause: symbol | undefined
+  private audioTransitions = Promise.resolve()
+  private audioReady = false
+  private audioPaused = false
+  private warning: 'synthesis' | undefined
   private vad: UtteranceDetector | undefined
 
-  constructor(private readonly binding: SessionBinding, private readonly remote: SpeechRemote,
+  private get paused(): boolean { return this.pauseLeases.size > 0 }
+
+  constructor(private readonly binding: SessionBinding, private readonly remote: SpeechRemote, private readonly personal: PersonalCallRemote,
     private readonly audio: CallAudio, private readonly publish: (state: CallState) => void,
     private readonly release: () => void, private readonly ready: Promise<SessionBinding> = Promise.resolve(binding),
     private readonly detection: (initial: Pick<VoiceSpeechCatalog, 'threshold' | 'minSpeechMs'>) => Pick<VoiceSpeechCatalog, 'threshold' | 'minSpeechMs'> = initial => initial) {}
@@ -64,9 +74,12 @@ export class VoiceCall {
   private async begin(): Promise<void> {
     try {
       await this.audio.activate()
+      this.audioReady = true
+      await this.synchronizeAudio()
       await this.withLifetime(this.ready)
       const result = await this.withLifetime(this.remote.catalog(this.lifetime.signal))
       if (!result.ok) { this.fail('connection'); return }
+      await this.connectPresence()
       this.lifetime.signal.throwIfAborted()
       const catalog = result.value
       this.output = new VoiceOutput(catalog.maxTextLength,
@@ -108,16 +121,34 @@ export class VoiceCall {
         vad.configure(this.detection(catalog))
         vad.push(samples)
       }, () => { this.fail('microphone') }, this.lifetime.signal)
-      if (this.paused) await this.audio.pause()
       this.publishLive('listening')
     } catch (error) {
       if (!this.lifetime.signal.aborted) this.fail(error instanceof VoiceAudioError ? error.kind : 'connection')
     }
   }
 
+  private connectPresence(): Promise<void> {
+    const ready = Promise.withResolvers<void>()
+    const stream = this.personal.call(this.binding.sessionId, this.lifetime.signal)
+    this.track((async () => {
+      try {
+        for await (const _state of stream) ready.resolve()
+        if (!this.stopped()) throw new Error('Voice context connection closed')
+      } catch (error) {
+        ready.reject(error)
+        if (!this.stopped()) this.fail('connection')
+      } finally {
+        stream.dispose()
+        ready.reject(new DOMException('Voice call ended', 'AbortError'))
+      }
+    })())
+    return this.withLifetime(ready.promise)
+  }
+
   private interrupt(): number {
     const generation = ++this.generation
     if (this.lifetime.signal.aborted) return generation
+    if (this.warning !== undefined) { this.warning = undefined; this.publishLive('listening') }
     this.recognition?.abort()
     const pending = this.pendingInput
     this.output?.reset()
@@ -247,15 +278,26 @@ export class VoiceCall {
     this.speechTail = this.track(this.speechTail.then(async () => {
       if (stopped()) return
       let stream: ReturnType<SpeechRemote['synthesize']> | undefined
+      let operation: 'synthesis' | 'playback' = 'synthesis'
       try {
         stream = this.remote.synthesize({ text }, signal)
         this.publishLive('speaking')
         for await (const chunk of stream) {
           if (stopped()) break
-          this.audio.append(chunk.audio, sampleRate)
+          operation = 'playback'
+          this.audio.append(chunk.audio, chunk.sampleRate ?? sampleRate)
+          operation = 'synthesis'
         }
+        operation = 'playback'
         await this.audio.drain()
-      } catch (_error) { if (!stopped()) this.fail('synthesis') }
+      } catch (_error) {
+        if (stopped()) return
+        if (operation === 'playback') { this.fail('playback'); return }
+        try { this.audio.stopPlayback() }
+        catch (_playbackError) { this.fail('playback'); return }
+        this.warning = 'synthesis'
+        this.publishLive(this.binding.session.getSnapshot().running ? 'thinking' : 'listening')
+      }
       finally { stream?.dispose() }
     }).finally(() => {
       this.speaking--
@@ -270,7 +312,28 @@ export class VoiceCall {
   private stopped(): boolean { return this.lifetime.signal.aborted }
 
   private publishLive(phase: 'listening' | 'recognizing' | 'thinking' | 'speaking'): void {
-    if (!this.lifetime.signal.aborted) this.publish({ phase: this.paused ? 'paused' : phase })
+    if (!this.lifetime.signal.aborted) this.publish({ phase: this.paused ? 'paused' : phase,
+      ...(this.warning === undefined ? {} : { warning: this.warning }) })
+  }
+
+  /**
+   * Keep the call paused while its page is hidden.
+   * @param hidden - whether the owning page is hidden.
+   * @returns after capture and playback reach the requested state.
+   */
+  async setBackgrounded(hidden: boolean): Promise<void> {
+    if (this.stopped()) return
+    if (hidden) {
+      if (this.backgroundPause !== undefined) return
+      const lease = Symbol('background')
+      this.backgroundPause = lease
+      await this.acquirePause(lease)
+      return
+    }
+    const lease = this.backgroundPause
+    if (lease === undefined) return
+    this.backgroundPause = undefined
+    await this.releasePause(lease)
   }
 
   /**
@@ -279,17 +342,47 @@ export class VoiceCall {
    */
   async pauseForPreview(): Promise<() => Promise<void>> {
     if (this.stopped()) return async () => {}
-    this.paused = true; this.generation++; this.recognition?.abort(); this.vad?.reset()
-    this.publish({ phase: 'paused' })
-    try { await this.withLifetime(this.audio.pause()) }
-    catch (error) { if (!this.stopped()) this.fail('playback'); throw error }
+    const lease = Symbol('preview')
+    await this.acquirePause(lease)
+    let released = false
     return async () => {
-      if (this.stopped()) return
-      try { await this.withLifetime(this.audio.resume()) }
-      catch (error) { if (!this.stopped()) this.fail('playback'); throw error }
-      this.paused = false
-      this.publishLive(this.speaking > 0 ? 'speaking' : this.binding.session.getSnapshot().running ? 'thinking' : 'listening')
+      if (released) return
+      released = true
+      await this.releasePause(lease)
     }
+  }
+
+  private async acquirePause(lease: symbol): Promise<void> {
+    const wasPaused = this.paused
+    this.pauseLeases.add(lease)
+    if (!wasPaused) { this.generation++; this.recognition?.abort(); this.vad?.reset() }
+    this.publishLive('listening')
+    try { await this.synchronizeAudio() }
+    catch (error) { if (!this.stopped()) this.fail('playback'); throw error }
+  }
+
+  private async releasePause(lease: symbol): Promise<void> {
+    if (this.stopped() || !this.pauseLeases.delete(lease)) return
+    try { await this.synchronizeAudio() }
+    catch (error) { if (!this.stopped()) this.fail('playback'); throw error }
+  }
+
+  private synchronizeAudio(): Promise<void> {
+    const operation = this.audioTransitions.then(async () => {
+      if (this.stopped() || !this.audioReady) return
+      const shouldPause = this.paused
+      if (shouldPause === this.audioPaused) return
+      if (shouldPause) await this.audio.pause()
+      else await this.audio.resume()
+      if (this.stopped()) return
+      this.audioPaused = shouldPause
+      if (!shouldPause) this.publishLive(this.speaking > 0 ? 'speaking' : this.binding.session.getSnapshot().running ? 'thinking' : 'listening')
+    })
+    this.audioTransitions = operation.catch((error: unknown) => {
+      // The caller reports the playback failure; keep later transitions and teardown ordered.
+      void error
+    })
+    return operation
   }
 
   private fail(failure: CallFailure): void {
@@ -315,7 +408,7 @@ export class VoiceCall {
     if (this.disposal) return this.disposal
     this.lifetime.abort(); this.speech.abort(); this.disposeEvents(); this.disposeStatus()
     if (showIdle) this.publish({ phase: 'stopping' })
-    const closing = this.audio.dispose()
+    const closing = this.audioTransitions.then(() => this.audio.dispose())
     this.disposal = (async () => {
       try {
         try { await closing } finally { await Promise.allSettled([...this.tasks]) }

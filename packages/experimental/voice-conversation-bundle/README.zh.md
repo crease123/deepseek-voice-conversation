@@ -41,12 +41,14 @@ pnpm dsh voice-conversation --from-default-profile web --dump-config
 
 源码开发时，启动 profile 前先按照[仓库指南](../../../README.zh.md#构建本地-client-产物)构建本地 Client 产物。
 
-仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入两个插件，并将 `/absolute/path/to/deepseek-voice-conversation` 替换为当前检出目录的绝对路径：
+仅首次执行这条初始化命令：`--from-default-profile` 会替换指定 profile 目录，包括已有补丁和依赖。编辑 `$DSH_HOME/profiles/voice-conversation/cordis.patch.yml`（默认为 `~/.dsh/profiles/voice-conversation/cordis.patch.yml`），在其中插入三个插件，并将 `/absolute/path/to/deepseek-voice-conversation` 替换为当前检出目录的绝对路径：
 
 ```yaml
 - insert:
     - id: voice-speech-doubao
       name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
+    - id: personal-agent
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/personal-agent/src/index.ts'
     - id: client-ui-voice-conversation
       name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
@@ -57,15 +59,17 @@ pnpm dsh voice-conversation --from-default-profile web --dump-config
 pnpm dsh voice-conversation --no-open --port 0
 ```
 
-打开终端打印的 URL。运行 `pnpm dsh voice-conversation --dump-config` 可只检查组合，不启动应用或模型请求；输出包含 `voice-speech-doubao` 和 `client-ui-voice-conversation`。将插入项放在 profile 自有补丁中，设置面板才能将偏好保存到该文件。仅由命令行 `--patch` 覆盖层插入的插件无法接受这些 profile 写入。浏览器部分仍需要工作区已构建的 Client 产物。可安装组合包通过[组合补丁](cordis.patch.yml)以包名声明相同的两个条目。
+打开终端打印的 URL。运行 `pnpm dsh voice-conversation --dump-config` 可只检查组合，不启动应用或模型请求；输出包含 `voice-speech-doubao` 和 `client-ui-voice-conversation`。将插入项放在 profile 自有补丁中，设置面板才能将偏好保存到该文件。仅由命令行 `--patch` 覆盖层插入的插件无法接受这些 profile 写入。浏览器部分仍需要工作区已构建的 Client 产物。可安装组合包通过[组合补丁](cordis.patch.yml)以包名声明相同的三个条目。
 
 ### 与智能体通话
 
-打开会话，从输入区开始通话并授予麦克风权限。每次停顿会结束当前语句，识别出的文字自动提交到该 Session。回复按句播放。回复过程中开口会停止播报，并请求取消当前智能体轮次，再提交下一句话。工具继续遵循现有权限和审批提示。
+新建会话时选择「个人 Agent」，在「设置 → 个人 Agent」编辑基础提示词和通话补充规则。通话连接先同步 Host 的 Session 状态，再接收第一句话；挂断或断线撤销状态，下次模型请求恢复文字规则，不额外发送聊天消息。
 
-在设置 → 通用 → 语音通话中调整声音、播放与说话检测偏好。[Client 设置](../client-ui-voice-conversation/README.zh.md#use-this-package)支持通话中的草稿试听，不添加 Session 消息；应用后才保存偏好。
+打开会话，从输入区开始通话并授予麦克风权限。每次停顿会结束当前语句，识别出的文字自动提交到该 Session。语音输入和已投递的定时提醒所触发的回复按句播放；任务变更通知保持静音。回复过程中开口会停止播报，并请求取消当前智能体轮次，再提交下一句话。工具继续遵循现有权限和审批提示。
 
-挂断会释放麦克风并停止语音请求。切换 Session、隐藏页面或卸载 Client 也会释放本次通话的音频资源。取消轮次不会撤销已经完成的操作。
+在设置 → 语音通话中调整声音、播放与说话检测偏好。[Client 设置](../client-ui-voice-conversation/README.zh.md#use-this-package)支持通话中的草稿试听，不添加 Session 消息；应用后才保存偏好。
+
+挂断会释放麦克风并停止语音请求。切换 Session 或卸载 Client 会关闭通话。隐藏页面时会暂停麦克风输入和播放，但保留通话；回到页面后恢复。取消轮次不会撤销已经完成的操作。
 
 -----
 

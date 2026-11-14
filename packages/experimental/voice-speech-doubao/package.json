@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-voice-speech-doubao",
   "description": "Doubao transcription and streaming synthesis for optional voice conversations",
-  "version": "0.2.2-rc.1",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },
@@ -66,5 +66,10 @@
   },
   "scripts": {
     "bundle": "tsdown"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crease123/deepseek-voice-conversation.git",
+    "directory": "packages/experimental/voice-speech-doubao"
   }
 }

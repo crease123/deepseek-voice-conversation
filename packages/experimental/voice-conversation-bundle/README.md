@@ -47,6 +47,8 @@ Run this initialization only once: `--from-default-profile` replaces the named p
 - insert:
     - id: voice-speech-doubao
       name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/voice-speech-doubao/src/index.ts'
+    - id: personal-agent
+      name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/personal-agent/src/index.ts'
     - id: client-ui-voice-conversation
       name: '/absolute/path/to/deepseek-voice-conversation/packages/experimental/client-ui-voice-conversation/src/index.ts'
 ```
@@ -57,15 +59,17 @@ Start this profile without the initialization flag:
 pnpm dsh voice-conversation --no-open --port 0
 ```
 
-Open the URL printed in the terminal. To inspect composition without starting the app or a model request, run `pnpm dsh voice-conversation --dump-config`; the output includes `voice-speech-doubao` and `client-ui-voice-conversation`. Keeping the inserts in the profile’s own patch lets Settings save their preferences there. A plugin inserted only by a command-line `--patch` overlay cannot accept those profile writes. The browser half still requires the workspace’s built Client artifact. The installable bundle declares the same two rows by package name in [its patch](cordis.patch.yml).
+Open the URL printed in the terminal. To inspect composition without starting the app or a model request, run `pnpm dsh voice-conversation --dump-config`; the output includes `voice-speech-doubao` and `client-ui-voice-conversation`. Keeping the inserts in the profile’s own patch lets Settings save their preferences there. A plugin inserted only by a command-line `--patch` overlay cannot accept those profile writes. The browser half still requires the workspace’s built Client artifact. The installable bundle declares the same three rows by package name in [its patch](cordis.patch.yml).
 
 ### Talk to the agent
 
-Open a conversation, start a call from the composer, and grant microphone access. A pause ends each utterance; recognition submits its text to that Session automatically. Replies play sentence by sentence. Speaking during a reply stops playback and requests cancellation of the active Agent turn before the next utterance is submitted. Existing tool permissions and approval prompts still apply.
+Select Personal Agent in a new conversation and edit its base and call rules in Settings → Personal Agent. Call registration reaches the Host before microphone admission; hangup or disconnection withdraws it. The next model request returns to text guidance without an extra chat message.
 
-Use Settings → General → Voice conversation for voice, playback, and speech-detection preferences. The [Client settings](../client-ui-voice-conversation/README.md#use-this-package) support draft previews during calls without adding Session messages; Apply saves the accepted preferences.
+Open a conversation, start a call from the composer, and grant microphone access. A pause ends each utterance; recognition submits its text to that Session automatically. Replies to voice input and delivered scheduled reminders play sentence by sentence; schedule-change notices remain silent. Speaking during a reply stops playback and requests cancellation of the active Agent turn before the next utterance is submitted. Existing tool permissions and approval prompts still apply.
 
-Hang up to release the microphone and voice requests. Switching Sessions, hiding the page, or unloading the Client also releases the call’s audio resources. Cancelling a turn does not undo operations that have already completed.
+Use Settings → Voice conversation for voice, playback, and speech-detection preferences. The [Client settings](../client-ui-voice-conversation/README.md#use-this-package) support draft previews during calls without adding Session messages; Apply saves the accepted preferences.
+
+Hang up to release the microphone and voice requests. Switching Sessions or unloading the Client closes the call. Hiding the page pauses microphone input and playback while retaining the call; returning to the page resumes it. Cancelling a turn does not undo operations that have already completed.
 
 -----
 

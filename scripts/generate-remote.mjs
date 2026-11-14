@@ -5,8 +5,11 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const packageName = '@deepseek-ai/dsh-voice-speech-doubao'
-const sourcePackage = join(repositoryRoot, 'packages/experimental/voice-speech-doubao')
+const packages = ['voice-speech-doubao', 'personal-agent'].map(name => ({
+  name: `@deepseek-ai/dsh-${name}`,
+  source: join(repositoryRoot, 'packages/experimental', name),
+  reference: `./packages/experimental/${name}`,
+}))
 const harnessRootValue = process.env.DSH_HARNESS_ROOT
 const arguments_ = process.argv.slice(2).filter(argument => argument !== '--')
 
@@ -22,8 +25,7 @@ const harnessRoot = resolve(harnessRootValue)
 const hostConfig = join(harnessRoot, 'tsconfig.host.json')
 const generatorEntry = join(harnessRoot, 'packages/typert/generator/lib/index.js')
 const protocolSource = join(harnessRoot, 'packages/typert/protocol')
-const stagedProjectReference = './packages/experimental/voice-speech-doubao'
-const stagedPackage = join(harnessRoot, stagedProjectReference.slice(2))
+const stagedPackages = packages.map(package_ => ({ ...package_, staged: join(harnessRoot, package_.reference.slice(2)) }))
 const generatedFiles = ['typert.host.js', 'typert.host.d.ts', 'typert.remote-client.js', 'typert.remote-client.d.ts']
 
 for (const path of [hostConfig, generatorEntry, join(protocolSource, 'src/index.ts')]) {
@@ -41,35 +43,37 @@ try {
 }
 
 const originalHostConfig = await readFile(hostConfig)
-const patchedHostConfig = addHostReference(originalHostConfig.toString('utf8'), hostConfig, stagedProjectReference)
+const patchedHostConfig = stagedPackages.reduce((source, package_) => addHostReference(source, hostConfig, package_.reference), originalHostConfig.toString('utf8'))
 if (arguments_.includes('--dry-run')) {
-  console.log(`Validated the temporary Typert project reference in ${hostConfig}.`)
+  console.log(`Validated ${stagedPackages.length} temporary Typert project references in ${hostConfig}.`)
   process.exit(0)
 }
 const backupDirectory = await mkdtemp(join(tmpdir(), 'dsh-voice-host-config-'))
 const backupPath = join(backupDirectory, 'tsconfig.host.json')
 await writeFile(backupPath, originalHostConfig)
 let configChanged = false
-let stagingCreated = false
+const createdStages = []
 let generationError
 
 try {
-  try {
-    await mkdir(stagedPackage)
-  } catch (error) {
-    if (error?.code === 'EEXIST') {
-      throw new Error(`Refusing to replace an existing Harness package directory: ${stagedPackage}`, { cause: error })
+  for (const package_ of stagedPackages) {
+    try {
+      await mkdir(package_.staged)
+    } catch (error) {
+      if (error?.code === 'EEXIST') {
+        throw new Error(`Refusing to replace an existing Harness package directory: ${package_.staged}`, { cause: error })
+      }
+      throw error
     }
-    throw error
+    createdStages.push(package_.staged)
+    await cp(package_.source, package_.staged, {
+      recursive: true,
+      filter: path => {
+        const relativePath = relative(package_.source, path)
+        return relativePath === '' || !relativePath.split(sep).some(part => part === 'node_modules' || part === 'lib')
+      },
+    })
   }
-  stagingCreated = true
-  await cp(sourcePackage, stagedPackage, {
-    recursive: true,
-    filter: path => {
-      const relativePath = relative(sourcePackage, path)
-      return relativePath === '' || !relativePath.split(sep).some(part => part === 'node_modules' || part === 'lib')
-    },
-  })
   const configBeforePatch = await readFile(hostConfig)
   if (!configBeforePatch.equals(originalHostConfig)) {
     throw new Error(`Harness config changed during validation. No temporary config was written; retry after the other edit is complete: ${hostConfig}`)
@@ -81,21 +85,23 @@ try {
   const artifacts = new WorkspaceTypertGenerator(harnessRoot, {
     checkDiagnostics: false,
     rejectBuildOutputs: true,
-  }).generate([packageName], ['host'])
+  }).generate(stagedPackages.map(package_ => package_.name), ['host'])
 
-  if (artifacts.length !== 1 || artifacts[0]?.remote === undefined) {
-    throw new Error(`Typert did not produce the Host Remote metadata for ${packageName}.`)
+  if (artifacts.length !== stagedPackages.length || artifacts.some(artifact => artifact.remote === undefined)) {
+    throw new Error('Typert did not produce Host Remote metadata for every requested package.')
   }
   writeWorkspaceArtifacts(harnessRoot, artifacts)
 
-  const outputDirectory = join(repositoryRoot, 'packages/experimental/voice-speech-doubao/lib')
-  await mkdir(outputDirectory, { recursive: true })
-  for (const file of generatedFiles) {
-    await copyFile(join(stagedPackage, 'lib', file), join(outputDirectory, file))
+  for (const package_ of stagedPackages) {
+    const outputDirectory = join(package_.source, 'lib')
+    await mkdir(outputDirectory, { recursive: true })
+    for (const file of generatedFiles) {
+      await copyFile(join(package_.staged, 'lib', file), join(outputDirectory, file))
+    }
+    // Published declarations must not refer to a map under temporary staging.
+    await rm(join(outputDirectory, 'typert.remote-client.d.ts.map'), { force: true })
+    console.log(`Generated Host and Remote Client metadata for ${package_.name}.`)
   }
-  // The published package includes the declarations but not a map to the temporary staging path.
-  await rm(join(outputDirectory, 'typert.remote-client.d.ts.map'), { force: true })
-  console.log(`Generated Host and Remote Client metadata for ${packageName}.`)
 } catch (error) {
   generationError = error
 } finally {
@@ -108,16 +114,16 @@ try {
         await writeFile(hostConfig, originalHostConfig)
       } else if (!currentConfig.equals(originalHostConfig)) {
         preserveBackup = true
-        cleanupErrors.push(new Error(`Harness config changed during generation and was left untouched. Restore or merge the original from ${backupPath}; the staged package was removed.`))
+        cleanupErrors.push(new Error(`Harness config changed during generation and was left untouched. Restore or merge the original from ${backupPath}; the staged packages were removed.`))
       }
     } catch (error) {
       preserveBackup = true
       cleanupErrors.push(error)
     }
   }
-  if (stagingCreated) {
+  for (const staged of createdStages) {
     try {
-      await rm(stagedPackage, { recursive: true, force: true })
+      await rm(staged, { recursive: true, force: true })
     } catch (error) {
       cleanupErrors.push(error)
     }
@@ -160,13 +166,13 @@ function addHostReference(source, file, stagedProjectReference) {
   }
   if (references.elements.length === 0) {
     const position = references.getStart(json) + 1
-    return `${source.slice(0, position)}\n    { "path": "./packages/experimental/voice-speech-doubao" }\n  ${source.slice(position)}`
+    return `${source.slice(0, position)}\n    { "path": "${stagedProjectReference}" }\n  ${source.slice(position)}`
   }
   const last = references.elements.at(-1)
   if (last === undefined) throw new Error(`Could not locate the final project reference in ${file}.`)
   const rest = source.slice(last.end, references.end - 1)
   const separator = rest.trimStart().startsWith(',') ? '\n    ' : ',\n    '
-  return `${source.slice(0, last.end)}${separator}{ "path": "./packages/experimental/voice-speech-doubao" }${source.slice(last.end)}`
+  return `${source.slice(0, last.end)}${separator}{ "path": "${stagedProjectReference}" }${source.slice(last.end)}`
 }
 
 function requireTypescript(file) {

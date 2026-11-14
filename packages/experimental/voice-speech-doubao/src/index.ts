@@ -8,6 +8,7 @@ import z from '@deepseek-ai/schemastery'
 import { Remote, RemoteError, TypertRemoteService, type RemoteStream } from '@deepseek-ai/dsh-typert-protocol'
 import type { VoiceAudioChunk, VoicePreferences, VoiceSpeechCatalog, VoiceStyle, VoiceSynthesisRequest, VoiceTranscript, VoiceTranscriptionRequest } from './types.ts'
 import { recognize, recordingPcm, SpeechProviderFailure, synthesizePcm } from './protocol.ts'
+import { deepseekRecognize, deepseekSynthesize } from './deepseek.ts'
 import { voicePreferences, voiceSpeakers } from './preferences.ts'
 
 export type * from './types.ts'
@@ -21,6 +22,12 @@ declare module '@deepseek-ai/cordis' {
 
 /** Host connection, request limits, and browser recording preferences. */
 export interface Config {
+  asrProvider: Volatile<'deepseek' | 'doubao'>
+  ttsProvider: Volatile<'deepseek' | 'doubao'>
+  deepseekSpeaker: Volatile<'stella' | 'tide'>
+  deepseekApiKeyEnv: string
+  deepseekAsrUrl: string
+  deepseekTtsUrl: string
   /** Doubao final-result ASR WebSocket URL. */
   asrUrl: string
   /** Doubao unidirectional TTS SSE URL. */
@@ -78,6 +85,12 @@ interface Operation {
 export default class VoiceSpeechDoubao extends TypertRemoteService {
   static inject = ['credentials', 'typert']
   static Config: z<Options, Config> = z.object({
+    asrProvider: z.union(['deepseek', 'doubao']).default('deepseek').volatile(),
+    ttsProvider: z.union(['deepseek', 'doubao']).default('deepseek').volatile(),
+    deepseekSpeaker: z.union(['stella', 'tide']).default('stella').volatile(),
+    deepseekApiKeyEnv: z.string().role('credential-ref').default('DEEPSEEK_API_KEY'),
+    deepseekAsrUrl: z.string().default('https://api.deepseek.com/v1/tools/asr'),
+    deepseekTtsUrl: z.string().default('wss://api.deepseek.com/v1/tools/tts'),
     asrUrl: z.string().default('wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream'),
     ttsUrl: z.string().default('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse'),
     asrResourceId: z.string().min(1).default('volc.seedasr.sauc.duration'),
@@ -108,6 +121,9 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'voiceSpeech')
     this.settingsNamespace = ctx.fiber.entry?.options.id as SettingsNamespace | undefined
+    credentialRef(config.deepseekApiKeyEnv)
+    this.validateUrl(config.deepseekAsrUrl, 'https:', 'http:')
+    this.validateUrl(config.deepseekTtsUrl, 'wss:', 'ws:')
     credentialRef(config.apiKeyEnv)
     credentialRef(config.appIdEnv)
     credentialRef(config.accessTokenEnv)
@@ -138,7 +154,7 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
     const { sampleRate, silenceMs, maxUtteranceMs, maxTextLength } = this.config
     const voice = this.savedVoice()
     const settingsNamespace = this.settingsNamespace
-    return { voice, voices: voiceSpeakers(voice.speaker), sampleRate, silenceMs, maxUtteranceMs,
+    return { credentialRefs: { apiKey: this.config.apiKeyEnv, appId: this.config.appIdEnv, accessToken: this.config.accessTokenEnv }, asrProvider: this.config.asrProvider.get(), ttsProvider: this.config.ttsProvider.get(), deepseekSpeaker: this.config.deepseekSpeaker.get(), voice, voices: voiceSpeakers(voice.speaker), sampleRate: this.config.ttsProvider.get() === 'deepseek' ? 24000 : sampleRate, silenceMs, maxUtteranceMs,
       threshold: this.config.threshold.get(), minSpeechMs: this.config.minSpeechMs.get(), maxTextLength,
       ...settingsNamespace === undefined ? {} : { settingsNamespace } }
   }
@@ -156,6 +172,11 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
       let pcm: Buffer
       try { pcm = recordingPcm(request.wavBase64, this.config.maxAudioBytes, this.config.maxUtteranceMs) }
       catch (_invalidRecording) { throw new RemoteError('voice-speech/invalid-request', 'Record a shorter 16 kHz mono PCM16 WAV and try again.', { reason: 'audio' }) }
+      if (this.config.asrProvider.get() === 'deepseek') {
+        const headers = await this.deepseekAuth('asr')
+        const text = await deepseekRecognize(Buffer.from(request.wavBase64, 'base64'), this.config.deepseekAsrUrl, headers, this.config.maxProviderFrameBytes, this.config.maxTextLength, operation.signal)
+        return { text }
+      }
       const headers = await this.auth('asr')
       operation.signal.throwIfAborted()
       const text = await recognize(pcm, { url: this.config.asrUrl, headers, resourceId: this.config.asrResourceId,
@@ -186,12 +207,19 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
         let voice: VoicePreferences
         try { voice = voicePreferences(request.voice ?? this.savedVoice(), this.config.speaker.get()) }
         catch (_invalidVoice) { throw new RemoteError('voice-speech/invalid-request', 'Choose a supported voice, delivery style, speech rate, and pitch.', { reason: 'voice' }) }
+        const emit = (audio: Buffer): void => { chunks.push({ audio: audio.toString('base64'), sampleRate: 24000 }); notify() }
+        if (this.config.ttsProvider.get() === 'deepseek') {
+          const speaker = request.deepseekSpeaker ?? this.config.deepseekSpeaker.get()
+          if (speaker !== 'stella' && speaker !== 'tide') throw new RemoteError('voice-speech/invalid-request', 'Choose a supported voice.', { reason: 'voice' })
+          await deepseekSynthesize(text, speaker, this.config.deepseekTtsUrl, await this.deepseekAuth('tts'), this.config.maxSynthesisBytes, operation.signal, emit)
+          return
+        }
         const headers = await this.auth('tts')
         operation.signal.throwIfAborted()
         await synthesizePcm(text, { url: this.config.ttsUrl, headers, resourceId: this.config.ttsResourceId,
           voice, sampleRate: this.config.sampleRate, maxFrameBytes: this.config.maxProviderFrameBytes,
           maxAudioBytes: this.config.maxSynthesisBytes }, operation.signal, (audio) => {
-          chunks.push({ audio: audio.toString('base64') })
+          chunks.push({ audio: audio.toString('base64'), sampleRate: this.config.sampleRate })
           notify()
         })
       } catch (error) { state.failure = this.failure(error, 'tts', operation.signal, signal) }
@@ -234,6 +262,12 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
     }
   }
 
+  private async deepseekAuth(operation: 'asr' | 'tts'): Promise<Record<string, string>> {
+    const key = await this.ctx.credentials.resolve(credentialRef(this.config.deepseekApiKeyEnv))
+    if (!key?.value) throw new RemoteError('voice-speech/missing-credentials', 'Configure your DeepSeek API key in Harness credentials.', { operation })
+    return { Authorization: `Bearer ${key.value}` }
+  }
+
   private async auth(operation: 'asr' | 'tts'): Promise<Record<string, string>> {
     const key = await this.ctx.credentials.resolve(credentialRef(this.config.apiKeyEnv))
     if (key?.value) return { 'X-Api-Key': key.value }
@@ -253,7 +287,7 @@ export default class VoiceSpeechDoubao extends TypertRemoteService {
     if (signal.aborted) return new RemoteError('voice-speech/provider-failed', 'Speech service timed out. Try a shorter utterance or sentence.', { operation, reason: 'timeout' })
     if (error instanceof RemoteError) return error
     const reason = error instanceof SpeechProviderFailure ? error.reason : 'network'
-    return new RemoteError('voice-speech/provider-failed', 'Doubao speech failed. Check the configured credentials, resource access, and network before retrying.', { operation, reason })
+    return new RemoteError('voice-speech/provider-failed', 'Speech service failed. Check the configured credentials, resource access, and network before retrying.', { operation, reason })
   }
 
   private validateUrl(value: string, secure: string, local: string): void {
